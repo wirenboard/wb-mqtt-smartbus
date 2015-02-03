@@ -23,7 +23,7 @@ _testmain.go
 *.test
 *.prof
 
-wb-mqtt-smartbus
+/wb-mqtt-smartbus
 smartbus/smartbus.test
 
 _vendor
