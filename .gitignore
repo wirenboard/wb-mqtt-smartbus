@@ -25,3 +25,8 @@ _testmain.go
 
 wb-mqtt-smartbus
 smartbus/smartbus.test
+
+_vendor
+
+debian/files
+debian/wb-mqtt-smartbus*

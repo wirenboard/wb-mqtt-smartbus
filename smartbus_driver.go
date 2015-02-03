@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/contactless/wb-homa-drivers/wb-homa-smartbus/smartbus"
+	"./smartbus"
 	"flag"
 	"time"
 )

@@ -1,0 +1,4 @@
+gom 'code.google.com/p/go.net/websocket'
+gom 'git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git', :commit => '3e58ec10bf2da9ef3fc639d12a0eb2e3596c2df7'
+gom 'github.com/ivan4th/goserial', :commit => '25e5fe1b55b90e5f37021007f0e7329fa870e925'
+gom 'github.com/stretchr/testify', :commit => '33a31e5dbed8302d5ab7e6d12b416e95c2c4ebc0'
