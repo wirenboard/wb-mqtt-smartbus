@@ -1,0 +1,4 @@
+#!/bin/sh
+
+update-rc.d wb-mqtt-smartbus defaults
+invoke-rc.d wb-mqtt-smartbus start
