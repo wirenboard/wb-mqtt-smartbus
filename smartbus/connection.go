@@ -220,3 +220,11 @@ func (dev *SmartbusDevice) ReadMACAddress() {
 func (dev *SmartbusDevice) ReadMACAddressResponse(macAddress [8]uint8, remark []uint8) {
 	dev.Send(&ReadMACAddressResponse{macAddress, remark})
 }
+
+func (dev *SmartbusDevice) ReadTemperatureValues(useCelsius bool) {
+	dev.Send(&ReadTemperatureValues{useCelsius})
+}
+
+func (dev *SmartbusDevice) ReadTemperatureValuesResponse(useCelsius bool, values []int8) {
+	dev.Send(&ReadTemperatureValuesResponse{useCelsius, values})
+}

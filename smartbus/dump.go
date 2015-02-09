@@ -5,6 +5,7 @@ package smartbus
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -169,6 +170,29 @@ func (f *MessageFormatter) OnReadMACAddressResponse(msg *ReadMACAddressResponse,
 	f.log(hdr, "<ReadMACAddressResponse %s [%s]>",
 		strings.Join(macParts, ":"),
 		strings.Join(remarkParts, " "))
+}
+
+func (f *MessageFormatter) OnReadTemperatureValues(msg *ReadTemperatureValues, hdr* MessageHeader) {
+	unitStr := "Fahrenheit"
+	if msg.UseCelsius {
+		unitStr = "Celsius"
+	}
+
+	f.log(hdr, "<ReadTemperatureValues %s>", unitStr)
+}
+
+func (f *MessageFormatter) OnReadTemperatureValuesResponse(msg *ReadTemperatureValuesResponse, hdr* MessageHeader) {
+	unitStr := "Fahrenheit"
+	if msg.UseCelsius {
+		unitStr = "Celsius"
+	}
+
+	tempStrs := make([]string, len(msg.Values))
+	for i, v := range msg.Values {
+		tempStrs[i] = strconv.Itoa(int(v))
+	}
+
+	f.log(hdr, "<ReadTemperatureValuesResponse %s %s>", unitStr, strings.Join(tempStrs, ","))
 }
 
 type MessageDumper struct {

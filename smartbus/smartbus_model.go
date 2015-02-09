@@ -16,6 +16,7 @@ type Connector func() (SmartbusIO, error)
 type RealDeviceModel interface {
 	DeviceModel
 	Type() uint16
+	Poll()
 }
 
 type DeviceConstructor func (model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel
@@ -38,7 +39,7 @@ func (dm *VirtualRelayDevice) Publish() {
 			v = "1"
 		}
 		controlName := fmt.Sprintf("VirtualRelay%d", i + 1)
-		dm.Observer.OnNewControl(dm, controlName, "text", v)
+		dm.Observer.OnNewControl(dm, controlName, "text", v, false)
 	}
 }
 
@@ -118,6 +119,12 @@ func (model *SmartbusModel) Start() error {
 	return err
 }
 
+func (model *SmartbusModel) Poll() {
+	for _, dev := range model.deviceMap {
+		dev.Poll()
+	}
+}
+
 func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel {
 	deviceKey := (uint16(header.OrigSubnetID) << 8) + uint16(header.OrigDeviceID)
 	var dev, found = model.deviceMap[deviceKey]
@@ -183,6 +190,7 @@ type ZoneBeastDeviceModel struct {
 	DeviceModelBase
 	channelStatus []bool
 	skipBroadcast bool
+	numTemps int
 }
 
 func NewZoneBeastDeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel {
@@ -195,10 +203,15 @@ func NewZoneBeastDeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) Rea
 		},
 		make([]bool, 0, 100),
 		false,
+		0,
 	}
 }
 
 func (dm *ZoneBeastDeviceModel) Type() uint16 { return 0x139c }
+
+func (dm *ZoneBeastDeviceModel) Poll() {
+	dm.smartDev.ReadTemperatureValues(true) // FIXME: Celsius is hardcoded here
+}
 
 func (dm *ZoneBeastDeviceModel) SendValue(name, value string) bool {
 	log.Printf("ZoneBeastDeviceModel.SendValue(%v, %v)", name, value)
@@ -233,6 +246,15 @@ func (dm *ZoneBeastDeviceModel) OnZoneBeastBroadcast(msg *ZoneBeastBroadcast) {
 		dm.updateChannelStatus(msg.ChannelStatus)
 	}
 	dm.skipBroadcast = false
+}
+
+func (dm *ZoneBeastDeviceModel) OnReadTemperatureValuesResponse(msg *ReadTemperatureValuesResponse) {
+	// if it's not using Celsius, it's not for us
+	if msg.UseCelsius {
+		for i, v := range msg.Values {
+			dm.updateTemperatureValue(i + 1, v)
+		}
+	}
 }
 
 func (dm *ZoneBeastDeviceModel) updateSingleChannel(n int, isOn bool) {
@@ -270,7 +292,20 @@ func (dm *ZoneBeastDeviceModel) updateChannelStatus(channelStatus []bool) {
 			v = "1"
 		}
 		controlName := fmt.Sprintf("Channel %d", i + 1)
-		dm.Observer.OnNewControl(dm, controlName, "switch", v)
+		dm.Observer.OnNewControl(dm, controlName, "switch", v, false)
+	}
+}
+
+func (dm *ZoneBeastDeviceModel) updateTemperatureValue(n int, value int8) {
+	// note that this function isn't supposed to be called for some n > 1
+	// without being called first for n-1
+	controlName := fmt.Sprintf("Temp %d", n)
+	valueStr := strconv.Itoa(int(value))
+	if n > dm.numTemps {
+		dm.Observer.OnNewControl(dm, controlName, "temperature", valueStr, true)
+		dm.numTemps = n
+	} else {
+		dm.Observer.OnValue(dm, controlName, valueStr)
 	}
 }
 
@@ -306,6 +341,8 @@ func ddpControlName(buttonNo uint8) string {
 }
 
 func (dm *DDPDeviceModel) Type() uint16 { return 0x0095 }
+
+func (dm *DDPDeviceModel) Poll() {}
 
 func (dm *DDPDeviceModel) OnReadMACAddressResponse(msg *ReadMACAddressResponse) {
 	// NOTE: something like this can be used for button 'learning':
@@ -346,7 +383,7 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 		dm.Observer.OnValue(dm, controlName, strconv.Itoa(v))
 	} else {
 		dm.buttonAssignmentReceived[msg.ButtonNo - 1] = true
-		dm.Observer.OnNewControl(dm, controlName, "text", strconv.Itoa(v))
+		dm.Observer.OnNewControl(dm, controlName, "text", strconv.Itoa(v), false)
 	}
 
 	// TBD: this is not quite correct, should wait w/timeout etc.

@@ -2,8 +2,13 @@ package smartbus
 
 import (
 	"log"
+	"time"
 	"strings"
 	"strconv"
+)
+
+const (
+	DEFAULT_POLL_INTERVAL_MS = 5000
 )
 
 type MQTTMessage struct {
@@ -27,6 +32,7 @@ type MQTTClient interface {
 type Model interface {
 	Start() error
 	Observe(observer ModelObserver)
+	Poll()
 }
 
 type DeviceModel interface {
@@ -45,7 +51,7 @@ type ModelObserver interface {
 }
 
 type DeviceObserver interface {
-	OnNewControl(dev DeviceModel, name, paramType, value string)
+	OnNewControl(dev DeviceModel, name, paramType, value string, readOnly bool)
 	OnValue(dev DeviceModel, name, value string)
 }
 
@@ -56,6 +62,8 @@ type ModelBase struct {
 func (model *ModelBase) Observe(observer ModelObserver) {
 	model.Observer = observer
 }
+
+func (model *ModelBase) Poll() {}
 
 type DeviceBase struct {
 	DevName string
@@ -81,8 +89,11 @@ type Driver struct {
 	client MQTTClient
 	messageCh chan MQTTMessage
 	quit chan struct{}
+	poll chan time.Time
 	deviceMap map[string]DeviceModel
 	nextOrder map[string]int
+	autoPoll bool
+	pollIntervalMs int
 }
 
 func NewDriver(model Model, makeClient MQTTClientFactory) (drv *Driver) {
@@ -90,12 +101,35 @@ func NewDriver(model Model, makeClient MQTTClientFactory) (drv *Driver) {
 		model: model,
 		messageCh: make(chan MQTTMessage),
 		quit: make(chan struct{}),
+		poll: make(chan time.Time),
 		nextOrder: make(map[string]int),
 		deviceMap: make(map[string]DeviceModel),
+		autoPoll: true,
+		pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
 	}
 	drv.client = makeClient(drv.handleMessage)
 	drv.model.Observe(drv)
 	return
+}
+
+func (drv *Driver) SetAutoPoll(autoPoll bool) {
+	drv.autoPoll = autoPoll
+}
+
+func (drv *Driver) AutoPoll() bool {
+	return drv.autoPoll
+}
+
+func (drv *Driver) SetPollInterval(pollIntervalMs int) {
+	drv.pollIntervalMs = pollIntervalMs
+}
+
+func (drv *Driver) PollInterval() int {
+	return drv.pollIntervalMs
+}
+
+func (drv *Driver) Poll() {
+	drv.poll <- time.Now()
 }
 
 func (drv *Driver) handleMessage(message MQTTMessage) {
@@ -130,7 +164,7 @@ func (drv *Driver) OnNewDevice(dev DeviceModel) {
 	dev.Observe(drv)
 }
 
-func (drv *Driver) OnNewControl(dev DeviceModel, controlName, paramType, value string) {
+func (drv *Driver) OnNewControl(dev DeviceModel, controlName, paramType, value string, readOnly bool) {
 	devName := dev.Name()
 	nextOrder, found := drv.nextOrder[devName]
 	if !found {
@@ -141,9 +175,10 @@ func (drv *Driver) OnNewControl(dev DeviceModel, controlName, paramType, value s
 		strconv.Itoa(nextOrder))
 	drv.nextOrder[devName] = nextOrder + 1
 	drv.publishValue(dev, controlName, value)
-	// TBD: subscribe for non-read-only controls only
-	log.Printf("subscribe to: %s", drv.controlTopic(dev, controlName, "on"))
-	drv.client.Subscribe(drv.controlTopic(dev, controlName, "on"))
+	if !readOnly {
+		log.Printf("subscribe to: %s", drv.controlTopic(dev, controlName, "on"))
+		drv.client.Subscribe(drv.controlTopic(dev, controlName, "on"))
+	}
 }
 
 func (drv *Driver) OnValue(dev DeviceModel, controlName, value string) {
@@ -180,13 +215,24 @@ func (drv *Driver) Start() error {
 	if err := drv.model.Start(); err != nil {
 		return err
 	}
+	var ticker *time.Ticker
+	var pollChannel <-chan time.Time = drv.poll
+	if drv.autoPoll {
+		ticker = time.NewTicker(time.Duration(drv.pollIntervalMs) * time.Millisecond)
+		pollChannel = ticker.C
+	}
 	go func () {
 		for {
 			select {
 			case <- drv.quit:
 				log.Printf("Driver: stopping the client")
+				if ticker != nil {
+					ticker.Stop()
+				}
 				drv.client.Stop()
 				return
+			case <- pollChannel:
+				drv.model.Poll()
 			case msg := <- drv.messageCh:
 				drv.doHandleMessage(msg)
 			}

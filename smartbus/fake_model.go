@@ -23,6 +23,10 @@ func NewFakeModel(t *testing.T) (model *FakeModel) {
 	return
 }
 
+func (model *FakeModel) Poll () {
+	model.Rec("poll")
+}
+
 func (model *FakeModel) Start() error {
 	for _, dev := range model.devices {
 		model.Observer.OnNewDevice(dev)
@@ -60,7 +64,7 @@ func (dev *FakeDevice) SendValue(name, value string) bool {
 
 func (dev *FakeDevice) QueryParams() {
 	for k, v := range dev.paramTypes {
-		dev.Observer.OnNewControl(dev, k, v, dev.paramValues[k])
+		dev.Observer.OnNewControl(dev, k, v, dev.paramValues[k], false)
 	}
 }
 

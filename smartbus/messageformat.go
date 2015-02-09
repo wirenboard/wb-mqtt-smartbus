@@ -109,6 +109,30 @@ func WriteRemarkField(writer io.Writer, value reflect.Value) error {
 
 // ------
 
+func ReadTemperatureListField(reader io.Reader, value reflect.Value) error {
+	buf := make([]uint8, 8)
+	n, err := reader.Read(buf)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	r := make([]int8, n)
+	for i := 0; i < n; i++ {
+		r[i] = int8(buf[i])
+	}
+	value.Set(reflect.ValueOf(r[:n]))
+	return nil
+}
+
+func WriteTemperatureListField(writer io.Writer, value reflect.Value) error {
+	temps := value.Interface().([]int8)
+	if len(temps) > 8 {
+		return errors.New("temperature list field too long")
+	}
+	return binary.Write(writer, binary.BigEndian, temps)
+}
+
+// ------
+
 type FieldReadFunc func (reader io.Reader, value reflect.Value) error
 type FieldWriteFunc func (writer io.Writer, value reflect.Value) error
 
@@ -192,6 +216,10 @@ func arrayConverter(itemConverter converter) converter {
 }
 
 var converterMap map[string]converter = map[string]converter{
+	"flag": uint8MapConverter(map[uint8]interface{} {
+		0x00: false,
+		0x01: true,
+	}),
 	"success": uint8MapConverter(map[uint8]interface{} {
 		0xf8: true,
 		0xf5: false,
@@ -214,6 +242,7 @@ var converterMap map[string]converter = map[string]converter{
 				"LeftOffRightOn",
 			})),
 	"remark": {ReadRemarkField, WriteRemarkField},
+	"templist": {ReadTemperatureListField, WriteTemperatureListField},
 };
 
 func ReadTaggedField(reader io.Reader, value reflect.Value, tag string) error {

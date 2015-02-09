@@ -23,6 +23,7 @@ func doTestSmartbusDriver(t *testing.T,
 	driver := NewDriver(model, func (handler MQTTMessageHandler) MQTTClient {
 		return broker.MakeClient("driver", handler)
 	})
+	driver.SetAutoPoll(false)
 
 	handler := NewFakeHandler(t)
 	conn := NewSmartbusConnection(NewStreamIO(r, nil))
@@ -114,6 +115,22 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 		broker.Verify(
 			"tst -> /devices/zonebeast011c/controls/Channel 1/on: [0] (QoS 1)",
 			"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
+		)
+
+		driver.Poll()
+		handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
+		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{ 22 })
+		broker.Verify(
+			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/type: [temperature] (QoS 1, retained)",
+			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/order: [5] (QoS 1, retained)",
+			"driver -> /devices/zonebeast011c/controls/Temp 1: [22] (QoS 1, retained)",
+		)
+
+		driver.Poll()
+		handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
+		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{ -2 })
+		broker.Verify(
+			"driver -> /devices/zonebeast011c/controls/Temp 1: [-2] (QoS 1, retained)",
 		)
 
 		driver.Stop()

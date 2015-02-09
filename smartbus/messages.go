@@ -250,6 +250,23 @@ func (*ReadMACAddressResponse) Opcode() uint16 { return 0xf004 }
 
 // ------
 
+type ReadTemperatureValues struct {
+	UseCelsius bool `sbus:"flag"`
+}
+
+func (*ReadTemperatureValues) Opcode() uint16 { return 0xe3e7 }
+
+// ------
+
+type ReadTemperatureValuesResponse struct {
+	UseCelsius bool `sbus:"flag"`
+	Values []int8 `sbus:"templist"`
+}
+
+func (*ReadTemperatureValuesResponse) Opcode() uint16 { return 0xe3e8 }
+
+// ------
+
 func init () {
 	RegisterMessage(func () Message { return new(SingleChannelControlCommand) })
 	RegisterMessage(func () Message { return new(SingleChannelControlResponse) })
@@ -266,4 +283,6 @@ func init () {
 	RegisterMessage(func () Message { return new(SetPanelButtonModesResponse) })
 	RegisterMessage(func () Message { return new(ReadMACAddress) })
 	RegisterMessage(func () Message { return new(ReadMACAddressResponse) })
+	RegisterMessage(func () Message { return new(ReadTemperatureValues) })
+	RegisterMessage(func () Message { return new(ReadTemperatureValuesResponse) })
 }

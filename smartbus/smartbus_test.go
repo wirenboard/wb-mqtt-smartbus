@@ -625,6 +625,106 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 			0x05, // CRC(lo)
 		},
 	},
+	{
+		Name: "ReadTemperatureValues",
+		Opcode: 0xe3e7,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID: SAMPLE_APP_SUBNET,
+				OrigDeviceID: SAMPLE_APP_DEVICE_ID,
+				OrigDeviceType: SAMPLE_APP_DEVICE_TYPE,
+				TargetSubnetID: SAMPLE_SUBNET,
+				TargetDeviceID: SAMPLE_RELAY_DEVICE_ID,
+			},
+			&ReadTemperatureValues{
+				UseCelsius: true,
+			},
+		},
+		Packet: [] byte {
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x0c, // Len
+			0x03, // OrigSubnetID
+			0xfe, // OrigDeviceID
+			0xff, // OrigDeviceType(hi)
+			0xfe, // OrigDeviceType(lo)
+			0xe3, // Opcode(hi)
+			0xe7, // Opcode(lo)
+			0x01, // TargetSubnetID
+			0x1c, // TargetDeviceID
+			0x01, // [data] Temperature unit (1 = Celsius, 0 = Fahrenheit)
+			0xcc, // CRC(hi)
+			0xde, // CRC(lo)
+		},
+	},
+	{
+		Name: "ReadTemperatureValuesResponse",
+		Opcode: 0xe3e8,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID: SAMPLE_SUBNET,
+				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
+				TargetSubnetID: SAMPLE_APP_SUBNET,
+				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
+			},
+			&ReadTemperatureValuesResponse{
+				UseCelsius: true,
+				Values: []int8{ 50 },
+			},
+		},
+		Packet: [] byte {
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x0d, // Len
+			0x01, // OrigSubnetID
+			0x1c, // OrigDeviceID
+			0x13, // OrigDeviceType(hi)
+			0x9c, // OrigDeviceType(lo)
+			0xe3, // Opcode(hi)
+			0xe8, // Opcode(lo)
+			0x03, // TargetSubnetID
+			0xfe, // TargetDeviceID
+			0x01, // [data] Temperature unit (1 = Celsius, 0 = Fahrenheit)
+			0x32, // [data] 50 degC
+			0xa3, // CRC(hi)
+			0x55, // CRC(lo)
+		},
+	},
+	{
+		Name: "ReadTemperatureValuesResponse1",
+		Opcode: 0xe3e8,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID: SAMPLE_SUBNET,
+				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
+				TargetSubnetID: SAMPLE_APP_SUBNET,
+				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
+			},
+			&ReadTemperatureValuesResponse{
+				UseCelsius: true,
+				Values: []int8{ -4 },
+			},
+		},
+		Packet: [] byte {
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x0d, // Len
+			0x01, // OrigSubnetID
+			0x1c, // OrigDeviceID
+			0x13, // OrigDeviceType(hi)
+			0x9c, // OrigDeviceType(lo)
+			0xe3, // Opcode(hi)
+			0xe8, // Opcode(lo)
+			0x03, // TargetSubnetID
+			0xfe, // TargetDeviceID
+			0x01, // [data] Temperature unit (1 = Celsius, 0 = Fahrenheit)
+			0xfc, // [data] -4 degC
+			0x9b, // CRC(hi)
+			0xd7, // CRC(lo)
+		},
+	},
 }
 
 // http://smarthomebus.com/dealers/Protocols/Smart%20Bus%20Commands%20V5.10.pdf page 88
@@ -938,6 +1038,18 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 	app_ep.Observe(appHandler)
 	appToDDPDev := app_ep.GetSmartbusDevice(SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID)
 	appToAllDev := app_ep.GetBroadcastDevice()
+
+	ddpToRelayDev.ReadTemperatureValues(true)
+	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <ReadTemperatureValues Celsius>")
+
+	relayToDDPDev.ReadTemperatureValuesResponse(true, []int8{ 22 })
+	ddpHandler.Verify("01/1c (type 139c) -> 01/14: <ReadTemperatureValuesResponse Celsius 22>")
+
+	ddpToRelayDev.ReadTemperatureValues(false)
+	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <ReadTemperatureValues Fahrenheit>")
+
+	relayToDDPDev.ReadTemperatureValuesResponse(false, []int8{ -42 })
+	ddpHandler.Verify("01/1c (type 139c) -> 01/14: <ReadTemperatureValuesResponse Fahrenheit -42>")
 
 	ddpToRelayDev.SingleChannelControl(7, LIGHT_LEVEL_ON, 0)
 	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <SingleChannelControlCommand 7/100/0>")
