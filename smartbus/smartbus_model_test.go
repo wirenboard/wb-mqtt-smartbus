@@ -4,23 +4,24 @@ import (
 	"net"
 	"fmt"
 	"testing"
+        wbgo "github.com/contactless/wbgo"
 )
 
 func doTestSmartbusDriver(t *testing.T,
-	thunk func (conn *SmartbusConnection, driver *Driver, broker *FakeMQTTBroker,
-		handler *FakeHandler, client *FakeMQTTClient)) {
+	thunk func (conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker,
+		handler *FakeHandler, client *wbgo.FakeMQTTClient)) {
 
 	p, r := net.Pipe()
 
-	broker := NewFakeMQTTBroker(t)
+	broker := wbgo.NewFakeMQTTBroker(t)
 	model := NewSmartbusModel(func () (SmartbusIO, error) {
 		return NewStreamIO(p, nil), nil
 	}, SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID, SAMPLE_APP_DEVICE_TYPE)
-	client := broker.MakeClient("tst", func (msg MQTTMessage) {
+	client := broker.MakeClient("tst", func (msg wbgo.MQTTMessage) {
 		t.Logf("tst: message %v", msg)
 	})
 	client.Start()
-	driver := NewDriver(model, func (handler MQTTMessageHandler) MQTTClient {
+	driver := wbgo.NewDriver(model, func (handler wbgo.MQTTMessageHandler) wbgo.MQTTClient {
 		return broker.MakeClient("driver", handler)
 	})
 	driver.SetAutoPoll(false)
@@ -30,7 +31,7 @@ func doTestSmartbusDriver(t *testing.T,
 	thunk(conn, driver, broker, handler, client)
 }
 
-func VerifyVirtualRelays(broker *FakeMQTTBroker) {
+func VerifyVirtualRelays(broker *wbgo.FakeMQTTBroker) {
 	expected := make([]string, 0, 100)
 	expected = append(
 		expected,
@@ -49,7 +50,7 @@ func VerifyVirtualRelays(broker *FakeMQTTBroker) {
 }
 
 func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
-	doTestSmartbusDriver(t, func (conn *SmartbusConnection, driver *Driver, broker *FakeMQTTBroker, handler *FakeHandler, client *FakeMQTTClient) {
+	doTestSmartbusDriver(t, func (conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
 
 		relayEp := conn.MakeSmartbusEndpoint(
 			SAMPLE_SUBNET, SAMPLE_RELAY_DEVICE_ID, SAMPLE_RELAY_DEVICE_TYPE)
@@ -99,7 +100,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 			"driver -> /devices/zonebeast011c/controls/Channel 4: [0] (QoS 1, retained)",
 		)
 
-		client.Publish(MQTTMessage{"/devices/zonebeast011c/controls/Channel 2/on", "1", 1, false})
+		client.Publish(wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 2/on", "1", 1, false})
 		// note that SingleChannelControlResponse carries pre-command channel status
 		handler.Verify("03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
 		relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
@@ -108,7 +109,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 			"driver -> /devices/zonebeast011c/controls/Channel 2: [1] (QoS 1, retained)",
 		)
 
-		client.Publish(MQTTMessage{"/devices/zonebeast011c/controls/Channel 1/on", "0", 1, false})
+		client.Publish(wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 1/on", "0", 1, false})
 		handler.Verify("03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 1/0/0>")
 		relayToAllDev.SingleChannelControlResponse(1, true, LIGHT_LEVEL_OFF, parseChannelStatus("xx--"))
 		relayToAllDev.ZoneBeastBroadcast([]byte{ 0 }, parseChannelStatus("x---")) // outdated response -- must be ignored
@@ -142,7 +143,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 }
 
 func TestSmartbusDriverDDPHandling(t *testing.T) {
-	doTestSmartbusDriver(t, func (conn *SmartbusConnection, driver *Driver, broker *FakeMQTTBroker, handler *FakeHandler, client *FakeMQTTClient) {
+	doTestSmartbusDriver(t, func (conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
 		ddpEp := conn.MakeSmartbusEndpoint(
 			SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID, SAMPLE_DDP_DEVICE_TYPE)
 		ddpEp.Observe(handler)
@@ -191,7 +192,7 @@ func TestSmartbusDriverDDPHandling(t *testing.T) {
 		handler.Verify()
 		broker.Verify()
 
-		client.Publish(MQTTMessage{"/devices/ddp0114/controls/Page1Button2/on", "10", 1, false})
+		client.Publish(wbgo.MQTTMessage{"/devices/ddp0114/controls/Page1Button2/on", "10", 1, false})
 
 		handler.Verify("03/fe (type fffe) -> 01/14: " +
 			"<SetPanelButtonModes " +

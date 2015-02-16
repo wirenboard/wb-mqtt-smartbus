@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"testing"
 	"github.com/stretchr/testify/assert"
+        wbgo "github.com/contactless/wbgo"
 )
 
 const (
@@ -964,7 +965,7 @@ func parseChannelStatus(statusStr string) (status []bool) {
 }
 
 type FakeHandler struct {
-	Recorder
+	wbgo.Recorder
 	MessageFormatter
 }
 

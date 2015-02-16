@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"strconv"
+        wbgo "github.com/contactless/wbgo"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 type Connector func() (SmartbusIO, error)
 
 type RealDeviceModel interface {
-	DeviceModel
+	wbgo.DeviceModel
 	Type() uint16
 	Poll()
 }
@@ -28,7 +29,7 @@ func RegisterDeviceModelType(construct DeviceConstructor) {
 }
 
 type VirtualRelayDevice struct {
-	DeviceBase
+	wbgo.DeviceBase
 	channelStatus [NUM_VIRTUAL_RELAYS]bool
 }
 
@@ -77,7 +78,7 @@ func NewVirtualRelayDevice () *VirtualRelayDevice {
 }
 
 type SmartbusModel struct {
-	ModelBase
+	wbgo.ModelBase
 	connector Connector
 	deviceMap map[uint16]RealDeviceModel
 	subnetID uint8
@@ -150,7 +151,7 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 func (model *SmartbusModel) OnAnything(msg Message, header *MessageHeader) {
 	dev := model.ensureDevice(header)
 	if dev != nil {
-		visit(dev, msg, "On")
+		wbgo.Visit(dev, msg, "On")
 	}
 }
 
@@ -167,7 +168,7 @@ type DeviceModelBase struct {
 	titleBase string
 	model *SmartbusModel
 	smartDev *SmartbusDevice
-	Observer DeviceObserver
+	Observer wbgo.DeviceObserver
 }
 
 func (dm *DeviceModelBase) Name() string {
@@ -178,7 +179,7 @@ func (dm *DeviceModelBase) Title() string {
 	return fmt.Sprintf("%s %02x:%02x", dm.titleBase, dm.smartDev.SubnetID, dm.smartDev.DeviceID)
 }
 
-func (dev *DeviceModelBase) Observe(observer DeviceObserver) {
+func (dev *DeviceModelBase) Observe(observer wbgo.DeviceObserver) {
 	dev.Observer = observer
 }
 

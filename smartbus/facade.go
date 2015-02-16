@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
         serial "github.com/ivan4th/goserial"
+        wbgo "github.com/contactless/wbgo"
 )
 
 // FIXME
@@ -80,12 +81,12 @@ func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 	}
 }
 
-func NewSmartbusTCPDriver(serialAddress, brokerAddress string, provideUdpGateway bool) (*Driver, error) {
+func NewSmartbusTCPDriver(serialAddress, brokerAddress string, provideUdpGateway bool) (*wbgo.Driver, error) {
 	model := NewSmartbusModel(func () (SmartbusIO, error) {
 		return connect(serialAddress, provideUdpGateway)
 	}, DRIVER_SUBNET, DRIVER_DEVICE_ID, DRIVER_DEVICE_TYPE)
-	driver := NewDriver(model, func (handler MQTTMessageHandler) MQTTClient {
-		return NewPahoMQTTClient(brokerAddress, DRIVER_CLIENT_ID, handler)
+	driver := wbgo.NewDriver(model, func (handler wbgo.MQTTMessageHandler) wbgo.MQTTClient {
+		return wbgo.NewPahoMQTTClient(brokerAddress, DRIVER_CLIENT_ID, handler)
 	})
 	return driver, nil
 }

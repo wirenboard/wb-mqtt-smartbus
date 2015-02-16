@@ -1,5 +1,9 @@
 package smartbus
 
+import (
+	wbgo "github.com/contactless/wbgo"
+)
+
 // SmartbusConnection provides higher-level interface for
 // a SmartbusIO that uses endpoints to filter incoming
 // messages by their destination and assign source
@@ -121,7 +125,7 @@ func (ep *SmartbusEndpoint) maybeHandleMessage(smartbusMsg *SmartbusMessage) {
 func (ep *SmartbusEndpoint) notify(observers []interface{},
 	smartbusMsg *SmartbusMessage) {
 	for _, observer := range observers {
-		visit(observer, smartbusMsg.Message, "On", &smartbusMsg.Header)
+		wbgo.Visit(observer, smartbusMsg.Message, "On", &smartbusMsg.Header)
 	}
 }
 
