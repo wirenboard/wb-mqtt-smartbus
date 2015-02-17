@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"testing"
 	"github.com/stretchr/testify/assert"
-        wbgo "github.com/contactless/wbgo"
+        "github.com/contactless/wbgo"
 )
 
 const (

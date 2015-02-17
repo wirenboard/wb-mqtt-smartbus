@@ -85,8 +85,6 @@ func NewSmartbusTCPDriver(serialAddress, brokerAddress string, provideUdpGateway
 	model := NewSmartbusModel(func () (SmartbusIO, error) {
 		return connect(serialAddress, provideUdpGateway)
 	}, DRIVER_SUBNET, DRIVER_DEVICE_ID, DRIVER_DEVICE_TYPE)
-	driver := wbgo.NewDriver(model, func (handler wbgo.MQTTMessageHandler) wbgo.MQTTClient {
-		return wbgo.NewPahoMQTTClient(brokerAddress, DRIVER_CLIENT_ID, handler)
-	})
+	driver := wbgo.NewDriver(model, wbgo.NewPahoMQTTClient(brokerAddress, DRIVER_CLIENT_ID))
 	return driver, nil
 }

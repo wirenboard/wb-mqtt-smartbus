@@ -17,13 +17,9 @@ func doTestSmartbusDriver(t *testing.T,
 	model := NewSmartbusModel(func () (SmartbusIO, error) {
 		return NewStreamIO(p, nil), nil
 	}, SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID, SAMPLE_APP_DEVICE_TYPE)
-	client := broker.MakeClient("tst", func (msg wbgo.MQTTMessage) {
-		t.Logf("tst: message %v", msg)
-	})
+	client := broker.MakeClient("tst")
 	client.Start()
-	driver := wbgo.NewDriver(model, func (handler wbgo.MQTTMessageHandler) wbgo.MQTTClient {
-		return broker.MakeClient("driver", handler)
-	})
+	driver := wbgo.NewDriver(model, broker.MakeClient("driver"))
 	driver.SetAutoPoll(false)
 
 	handler := NewFakeHandler(t)
