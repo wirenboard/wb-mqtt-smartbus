@@ -149,10 +149,12 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 }
 
 func (model *SmartbusModel) OnAnything(msg Message, header *MessageHeader) {
-	dev := model.ensureDevice(header)
-	if dev != nil {
-		wbgo.Visit(dev, msg, "On")
-	}
+	model.Observer.CallSync(func () {
+		dev := model.ensureDevice(header)
+		if dev != nil {
+			wbgo.Visit(dev, msg, "On")
+		}
+	})
 }
 
 func (model *SmartbusModel) SetVirtualRelayOn(channelNo int, on bool) {
