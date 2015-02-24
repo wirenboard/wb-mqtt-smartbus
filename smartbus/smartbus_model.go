@@ -40,7 +40,7 @@ func (dm *VirtualRelayDevice) Publish() {
 			v = "1"
 		}
 		controlName := fmt.Sprintf("VirtualRelay%d", i + 1)
-		dm.Observer.OnNewControl(dm, controlName, "text", v, false)
+		dm.Observer.OnNewControl(dm, controlName, "text", v, false, -1)
 	}
 }
 
@@ -295,7 +295,7 @@ func (dm *ZoneBeastDeviceModel) updateChannelStatus(channelStatus []bool) {
 			v = "1"
 		}
 		controlName := fmt.Sprintf("Channel %d", i + 1)
-		dm.Observer.OnNewControl(dm, controlName, "switch", v, false)
+		dm.Observer.OnNewControl(dm, controlName, "switch", v, false, -1)
 	}
 }
 
@@ -305,7 +305,7 @@ func (dm *ZoneBeastDeviceModel) updateTemperatureValue(n int, value int8) {
 	controlName := fmt.Sprintf("Temp %d", n)
 	valueStr := strconv.Itoa(int(value))
 	if n > dm.numTemps {
-		dm.Observer.OnNewControl(dm, controlName, "temperature", valueStr, true)
+		dm.Observer.OnNewControl(dm, controlName, "temperature", valueStr, true, -1)
 		dm.numTemps = n
 	} else {
 		dm.Observer.OnValue(dm, controlName, valueStr)
@@ -386,7 +386,7 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 		dm.Observer.OnValue(dm, controlName, strconv.Itoa(v))
 	} else {
 		dm.buttonAssignmentReceived[msg.ButtonNo - 1] = true
-		dm.Observer.OnNewControl(dm, controlName, "text", strconv.Itoa(v), false)
+		dm.Observer.OnNewControl(dm, controlName, "text", strconv.Itoa(v), false, -1)
 	}
 
 	// TBD: this is not quite correct, should wait w/timeout etc.
