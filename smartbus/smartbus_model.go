@@ -65,7 +65,11 @@ func (dm *VirtualRelayDevice) RelayStatus() []bool {
 	return dm.channelStatus[:]
 }
 
-func (dm *VirtualRelayDevice) SendValue(name, value string) bool {
+func (dm *VirtualRelayDevice) AcceptValue(name, value string) {
+	// FIXME: support retained values for virtual relays
+}
+
+func (dm *VirtualRelayDevice) AcceptOnValue(name, value string) bool {
 	// virtual relays cannot be changed
 	return false
 }
@@ -185,6 +189,10 @@ func (dev *DeviceModelBase) Observe(observer wbgo.DeviceObserver) {
 	dev.Observer = observer
 }
 
+func (dev *DeviceModelBase) AcceptValue(name, value string) {
+	// ignore retained values
+}
+
 func (dev *DeviceModelBase) OnReadMACAddressResponse(msg *ReadMACAddressResponse) {
 	log.Printf("Got MAC address query response from %s (%s)", dev.Name(), dev.Title())
 }
@@ -216,8 +224,8 @@ func (dm *ZoneBeastDeviceModel) Poll() {
 	dm.smartDev.ReadTemperatureValues(true) // FIXME: Celsius is hardcoded here
 }
 
-func (dm *ZoneBeastDeviceModel) SendValue(name, value string) bool {
-	log.Printf("ZoneBeastDeviceModel.SendValue(%v, %v)", name, value)
+func (dm *ZoneBeastDeviceModel) AcceptOnValue(name, value string) bool {
+	log.Printf("ZoneBeastDeviceModel.AcceptOnValue(%v, %v)", name, value)
 	channelNo, err := strconv.Atoi(strings.TrimPrefix(name, "Channel "))
 	if err != nil {
 		log.Printf("bad channel name: %s", name)
@@ -432,7 +440,7 @@ func (dm *DDPDeviceModel) OnSingleChannelControlCommand(msg *SingleChannelContro
 		dm.model.VirtualRelayStatus())
 }
 
-func (dm *DDPDeviceModel) SendValue(name, value string) bool {
+func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 	// FIXME
 	if dm.pendingAssignmentButtonNo > 0 {
 		log.Printf("ERROR: button assignment queueing not implemented yet!")
