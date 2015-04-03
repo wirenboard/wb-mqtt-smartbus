@@ -10,13 +10,13 @@ import (
 // addresses to outgoind messages.
 type SmartbusConnection struct {
 	smartbusIO SmartbusIO
-	endpoints []*SmartbusEndpoint
+	endpoints  []*SmartbusEndpoint
 }
 
 func NewSmartbusConnection(smartbusIO SmartbusIO) *SmartbusConnection {
 	conn := &SmartbusConnection{
 		smartbusIO: smartbusIO,
-		endpoints: make([]*SmartbusEndpoint, 0, 100),
+		endpoints:  make([]*SmartbusEndpoint, 0, 100),
 	}
 	conn.run()
 	return conn
@@ -24,7 +24,7 @@ func NewSmartbusConnection(smartbusIO SmartbusIO) *SmartbusConnection {
 
 func (conn *SmartbusConnection) run() {
 	readCh := conn.smartbusIO.Start()
-	go func () {
+	go func() {
 		for msg := range readCh {
 			for _, ep := range conn.endpoints {
 				ep.maybeHandleMessage(&msg)
@@ -58,13 +58,13 @@ func (conn *SmartbusConnection) Close() {
 }
 
 type SmartbusEndpoint struct {
-	Connection *SmartbusConnection
-	SubnetID uint8
-	DeviceID uint8
-	DeviceType uint16
-	deviceMap map[uint16]*SmartbusDevice
-	observers []interface{}
-	inputSniffers []interface{}
+	Connection     *SmartbusConnection
+	SubnetID       uint8
+	DeviceID       uint8
+	DeviceType     uint16
+	deviceMap      map[uint16]*SmartbusDevice
+	observers      []interface{}
+	inputSniffers  []interface{}
 	outputSniffers []interface{}
 }
 
@@ -130,9 +130,9 @@ func (ep *SmartbusEndpoint) notify(observers []interface{},
 }
 
 type SmartbusDevice struct {
-	Endpoint *SmartbusEndpoint
-	SubnetID uint8
-	DeviceID uint8
+	Endpoint   *SmartbusEndpoint
+	SubnetID   uint8
+	DeviceID   uint8
 	DeviceType uint16 // filled in when a packet is received from the device
 }
 
@@ -152,7 +152,7 @@ func (dev *SmartbusDevice) SingleChannelControl(channelNo uint8, level uint8, du
 }
 
 func (dev *SmartbusDevice) SingleChannelControlResponse(channelNo uint8,
-	success bool, level uint8, status[] bool) {
+	success bool, level uint8, status []bool) {
 	dev.Send(&SingleChannelControlResponse{channelNo, success, level, status})
 }
 
@@ -161,14 +161,14 @@ func (dev *SmartbusDevice) ZoneBeastBroadcast(zoneStatus []uint8, channelStatus 
 }
 
 func (dev *SmartbusDevice) QueryModules() {
-	dev.Send(&QueryModules{});
+	dev.Send(&QueryModules{})
 }
 
 func (dev *SmartbusDevice) QueryModulesResponse(deviceCategory uint8, channelNo uint8) {
 	dev.Send(&QueryModulesResponse{
 		dev.Endpoint.SubnetID, dev.Endpoint.DeviceID, deviceCategory, channelNo,
 		dev.Endpoint.SubnetID, dev.Endpoint.DeviceID,
-	});
+	})
 }
 
 func (dev *SmartbusDevice) PanelControlResponse(Type uint8, Value uint8) {

@@ -1,52 +1,52 @@
 package smartbus
 
 import (
-	"io"
-	"net"
-	"time"
 	"bytes"
 	"encoding/hex"
-	"testing"
+	"github.com/contactless/wbgo"
 	"github.com/stretchr/testify/assert"
-        "github.com/contactless/wbgo"
+	"io"
+	"net"
+	"testing"
+	"time"
 )
 
 const (
-	SAMPLE_SUBNET = 0x01
-	SAMPLE_DDP_DEVICE_ID = 0x14
-	SAMPLE_DDP_DEVICE_TYPE = 0x0095
-	SAMPLE_RELAY_DEVICE_ID = 0x1c
+	SAMPLE_SUBNET            = 0x01
+	SAMPLE_DDP_DEVICE_ID     = 0x14
+	SAMPLE_DDP_DEVICE_TYPE   = 0x0095
+	SAMPLE_RELAY_DEVICE_ID   = 0x1c
 	SAMPLE_RELAY_DEVICE_TYPE = 0x139c
-	SAMPLE_APP_SUBNET = 0x03
-	SAMPLE_APP_DEVICE_ID = 0xfe
-	SAMPLE_APP_DEVICE_TYPE = 0xfffe
+	SAMPLE_APP_SUBNET        = 0x03
+	SAMPLE_APP_DEVICE_ID     = 0xfe
+	SAMPLE_APP_DEVICE_TYPE   = 0xfffe
 )
 
 type MessageTestCase struct {
-	Name string
-	Opcode uint16
-	Packet []uint8
+	Name            string
+	Opcode          uint16
+	Packet          []uint8
 	SmartbusMessage SmartbusMessage
 }
 
 // TBD: include string representation tests
 
-var messageTestCases []MessageTestCase = []MessageTestCase {
+var messageTestCases []MessageTestCase = []MessageTestCase{
 	{
-		Name: "SingleChannelControlCommand",
+		Name:   "SingleChannelControlCommand",
 		Opcode: 0x0031,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_RELAY_DEVICE_ID,
 			},
 			&SingleChannelControlCommand{
 				ChannelNo: 7,
-				Level: 100,
-				Duration: 0,
+				Level:     100,
+				Duration:  0,
 			},
 		},
 		Packet: []uint8{
@@ -70,20 +70,20 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "SingleChannelControlResponse",
+		Name:   "SingleChannelControlResponse",
 		Opcode: 0x0032,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_RELAY_DEVICE_ID,
 				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
 				TargetSubnetID: BROADCAST_SUBNET,
 				TargetDeviceID: BROADCAST_DEVICE,
 			},
 			&SingleChannelControlResponse{
 				ChannelNo: 7,
-				Success: true,
-				Level: 0,
+				Success:   true,
+				Level:     0,
 				ChannelStatus: []bool{
 					false, false, false, false, false, false, true, false,
 					false, false, false, false, false, false, false,
@@ -113,25 +113,25 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "ZoneBeastBroadcast",
+		Name:   "ZoneBeastBroadcast",
 		Opcode: 0xefff,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_RELAY_DEVICE_ID,
 				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
 				TargetSubnetID: BROADCAST_SUBNET,
 				TargetDeviceID: BROADCAST_DEVICE,
 			},
 			&ZoneBeastBroadcast{
-				ZoneStatus: []uint8 { 0 },
+				ZoneStatus: []uint8{0},
 				ChannelStatus: []bool{
 					false, false, false, false, true, false, false, false,
 					false, false, false, false, false, false, false,
 				},
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x10, // Len
@@ -153,19 +153,19 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "QueryModules",
+		Name:   "QueryModules",
 		Opcode: 0x0286,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: BROADCAST_SUBNET,
 			},
 			&QueryModules{},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0b, // Len
@@ -182,24 +182,24 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "QueryModulesResponse",
+		Name:   "QueryModulesResponse",
 		Opcode: 0x0287,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_RELAY_DEVICE_ID,
 				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
 			},
 			&QueryModulesResponse{
-			        ControlledDeviceSubnetID: SAMPLE_SUBNET,
-				ControlledDeviceID: SAMPLE_RELAY_DEVICE_ID,
-				DeviceCategory: QUERY_MODULES_DEV_RELAY,
-				ChannelNo: 0x0a,
+				ControlledDeviceSubnetID: SAMPLE_SUBNET,
+				ControlledDeviceID:       SAMPLE_RELAY_DEVICE_ID,
+				DeviceCategory:           QUERY_MODULES_DEV_RELAY,
+				ChannelNo:                0x0a,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x12, // Len
@@ -223,22 +223,22 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "PanelControlResponse",
+		Name:   "PanelControlResponse",
 		Opcode: 0xe3d9,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: BROADCAST_SUBNET,
 				TargetDeviceID: BROADCAST_DEVICE,
 			},
 			&PanelControlResponse{
-				Type: PANEL_CONTROL_TYPE_COOLING_SET_POINT,
+				Type:  PANEL_CONTROL_TYPE_COOLING_SET_POINT,
 				Value: 0x19,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0d, // Len
@@ -257,12 +257,12 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "QueryFanController",
+		Name:   "QueryFanController",
 		Opcode: 0x0033,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_RELAY_DEVICE_ID,
@@ -271,7 +271,7 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 				Index: 0x07,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0c, // Len
@@ -289,22 +289,22 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "QueryPanelButtonAssignment",
+		Name:   "QueryPanelButtonAssignment",
 		Opcode: 0xe000,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_APP_SUBNET,
-				OrigDeviceID: SAMPLE_APP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_APP_SUBNET,
+				OrigDeviceID:   SAMPLE_APP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_APP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
 			},
 			&QueryPanelButtonAssignment{
-				ButtonNo: 2,
+				ButtonNo:   2,
 				FunctionNo: 1,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0d, // Len
@@ -323,28 +323,28 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "QueryPanelButtonAssignmentResponse",
+		Name:   "QueryPanelButtonAssignmentResponse",
 		Opcode: 0xe001,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_APP_SUBNET,
 				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
 			},
 			&QueryPanelButtonAssignmentResponse{
-				ButtonNo: 2,
-				FunctionNo: 1,
-				Command: 0x59,
+				ButtonNo:        2,
+				FunctionNo:      1,
+				Command:         0x59,
 				CommandSubnetID: 0x01,
 				CommandDeviceID: 0x99,
-				ChannelNo: 8,
-				Level: 100,
-				Duration: 0,
+				ChannelNo:       8,
+				Level:           100,
+				Duration:        0,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x14, // Len
@@ -370,29 +370,29 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "AssignPanelButton",
+		Name:   "AssignPanelButton",
 		Opcode: 0xe002,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_APP_SUBNET,
-				OrigDeviceID: SAMPLE_APP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_APP_SUBNET,
+				OrigDeviceID:   SAMPLE_APP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_APP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
 			},
 			&AssignPanelButton{
-				ButtonNo: 1,
-				FunctionNo: 1,
-				Command: BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
+				ButtonNo:        1,
+				FunctionNo:      1,
+				Command:         BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
 				CommandSubnetID: 0x01,
 				CommandDeviceID: 0x99,
-				ChannelNo: 1,
-				Level: 100,
-				Duration: 0,
-				Unknown: 0,
+				ChannelNo:       1,
+				Level:           100,
+				Duration:        0,
+				Unknown:         0,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x15, // Len
@@ -419,22 +419,22 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "AssignPanelButtonResponse",
+		Name:   "AssignPanelButtonResponse",
 		Opcode: 0xe003,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_APP_SUBNET,
 				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
 			},
 			&AssignPanelButtonResponse{
-				ButtonNo: 1,
+				ButtonNo:   1,
 				FunctionNo: 1,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0d, // Len
@@ -453,18 +453,18 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "SetPanelButtonModes",
+		Name:   "SetPanelButtonModes",
 		Opcode: 0xe00a,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_APP_SUBNET,
-				OrigDeviceID: SAMPLE_APP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_APP_SUBNET,
+				OrigDeviceID:   SAMPLE_APP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_APP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
 			},
 			&SetPanelButtonModes{
-				Modes: [16]string {
+				Modes: [16]string{
 					"Invalid",
 					"SingleOnOff",
 					"SingleOnOff",
@@ -484,7 +484,7 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 				},
 			},
 		},
-		Packet: []byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x1b, // Len
@@ -517,12 +517,12 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "SetPanelButtonModesResponse",
+		Name:   "SetPanelButtonModesResponse",
 		Opcode: 0xe00b,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_APP_SUBNET,
 				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
@@ -549,19 +549,19 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "ReadMACAddress",
+		Name:   "ReadMACAddress",
 		Opcode: 0xf003,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_APP_SUBNET,
-				OrigDeviceID: SAMPLE_APP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_APP_SUBNET,
+				OrigDeviceID:   SAMPLE_APP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_APP_DEVICE_TYPE,
 				TargetSubnetID: BROADCAST_SUBNET,
 				TargetDeviceID: BROADCAST_DEVICE,
 			},
 			&ReadMACAddress{},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0b, // Len
@@ -578,22 +578,22 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "ReadMACAddressResponse",
+		Name:   "ReadMACAddressResponse",
 		Opcode: 0xf004,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_DDP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_APP_SUBNET,
 				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
 			},
 			&ReadMACAddressResponse{
-				MAC: [8]uint8 {
+				MAC: [8]uint8{
 					0x53, 0x03, 0x00, 0x00,
 					0x00, 0x00, 0x30, 0xc3,
 				},
-				Remark: []uint8 {
+				Remark: []uint8{
 					0x32, 0x2c, 0x32, 0x30,
 				},
 			},
@@ -627,12 +627,12 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "ReadTemperatureValues",
+		Name:   "ReadTemperatureValues",
 		Opcode: 0xe3e7,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_APP_SUBNET,
-				OrigDeviceID: SAMPLE_APP_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_APP_SUBNET,
+				OrigDeviceID:   SAMPLE_APP_DEVICE_ID,
 				OrigDeviceType: SAMPLE_APP_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_RELAY_DEVICE_ID,
@@ -641,7 +641,7 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 				UseCelsius: true,
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0c, // Len
@@ -659,22 +659,22 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "ReadTemperatureValuesResponse",
+		Name:   "ReadTemperatureValuesResponse",
 		Opcode: 0xe3e8,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_RELAY_DEVICE_ID,
 				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_APP_SUBNET,
 				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
 			},
 			&ReadTemperatureValuesResponse{
 				UseCelsius: true,
-				Values: []int8{ 50 },
+				Values:     []int8{50},
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0d, // Len
@@ -693,22 +693,22 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 		},
 	},
 	{
-		Name: "ReadTemperatureValuesResponse1",
+		Name:   "ReadTemperatureValuesResponse1",
 		Opcode: 0xe3e8,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID: SAMPLE_SUBNET,
-				OrigDeviceID: SAMPLE_RELAY_DEVICE_ID,
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_RELAY_DEVICE_ID,
 				OrigDeviceType: SAMPLE_RELAY_DEVICE_TYPE,
 				TargetSubnetID: SAMPLE_APP_SUBNET,
 				TargetDeviceID: SAMPLE_APP_DEVICE_ID,
 			},
 			&ReadTemperatureValuesResponse{
 				UseCelsius: true,
-				Values: []int8{ -4 },
+				Values:     []int8{-4},
 			},
 		},
-		Packet: [] byte {
+		Packet: []byte{
 			0xaa, // Sync1
 			0xaa, // Sync2
 			0x0d, // Len
@@ -742,8 +742,8 @@ var messageTestCases []MessageTestCase = []MessageTestCase {
 // opcode 0x284 - check for adddress conflict
 
 type FakeMutex struct {
-	t *testing.T
-	locked bool
+	t         *testing.T
+	locked    bool
 	lockCount int
 }
 
@@ -762,19 +762,19 @@ func (mutex *FakeMutex) Unlock() {
 	mutex.locked = false
 }
 
-func (mutex *FakeMutex) VerifyLocked(count int, msg... interface{}) {
+func (mutex *FakeMutex) VerifyLocked(count int, msg ...interface{}) {
 	assert.True(mutex.t, mutex.locked, msg...)
 	assert.Equal(mutex.t, count, mutex.lockCount, msg...)
 }
 
-func (mutex *FakeMutex) VerifyUnlocked(count int, msg... interface{}) {
+func (mutex *FakeMutex) VerifyUnlocked(count int, msg ...interface{}) {
 	assert.False(mutex.t, mutex.locked, msg...)
 	assert.Equal(mutex.t, count, mutex.lockCount, msg...)
 }
 
 func (mutex *FakeMutex) WaitForUnlock() {
 	for i := 0; i < 50; i++ {
-		if (!mutex.locked) {
+		if !mutex.locked {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -832,7 +832,7 @@ func TestSingleFrame(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, len(mtc.Packet), n)
 
-		rawFrame := <- rawCh
+		rawFrame := <-rawCh
 		assert.Equal(t, mtc.Packet[2:], rawFrame)
 
 		VerifyReadSingle(t, mtc, ch)
@@ -868,7 +868,7 @@ func TestWriteRaw(t *testing.T) {
 		mtx.WaitForUnlock()
 		mtx.VerifyUnlocked(1, "unlocked after WriteSmartbus")
 		close(ch)
-	}	
+	}
 }
 
 func TestMultiRead(t *testing.T) {
@@ -886,9 +886,9 @@ func TestMultiRead(t *testing.T) {
 	mtx := NewFakeMutex(t)
 	go ReadSmartbus(buf, mtx, ch, rawCh)
 	for _, mtc := range messageTestCases {
-		rawFrame := <- rawCh
+		rawFrame := <-rawCh
 		assert.Equal(t, mtc.Packet[2:], rawFrame)
-		msg := <- ch
+		msg := <-ch
 		VerifyRead(t, mtc, msg)
 	}
 	mtx.VerifyUnlocked(len(messageTestCases), "unlocked after ReadSmartbus")
@@ -944,10 +944,10 @@ func TestReadLocking(t *testing.T) {
 	r.Write(mtc.Packet[:1])
 	mtx.VerifyLocked(1, "lock after sync")
 
-	r.Write(mtc.Packet[1:len(mtc.Packet) - 1])
+	r.Write(mtc.Packet[1 : len(mtc.Packet)-1])
 	mtx.VerifyLocked(1, "still locked after partial packet")
 
-	r.Write(mtc.Packet[len(mtc.Packet) - 1:])
+	r.Write(mtc.Packet[len(mtc.Packet)-1:])
 	mtx.VerifyUnlocked(1, "unlocked after complete packet")
 
 	r.Close()
@@ -969,10 +969,10 @@ type FakeHandler struct {
 	MessageFormatter
 }
 
-func NewFakeHandler (t *testing.T) (handler *FakeHandler) {
+func NewFakeHandler(t *testing.T) (handler *FakeHandler) {
 	handler = &FakeHandler{}
 	handler.InitRecorder(t)
-	handler.AddMessage = func (format string, args... interface{}) {
+	handler.AddMessage = func(format string, args ...interface{}) {
 		handler.Rec(format, args...)
 	}
 	return
@@ -1043,13 +1043,13 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 	ddpToRelayDev.ReadTemperatureValues(true)
 	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <ReadTemperatureValues Celsius>")
 
-	relayToDDPDev.ReadTemperatureValuesResponse(true, []int8{ 22 })
+	relayToDDPDev.ReadTemperatureValuesResponse(true, []int8{22})
 	ddpHandler.Verify("01/1c (type 139c) -> 01/14: <ReadTemperatureValuesResponse Celsius 22>")
 
 	ddpToRelayDev.ReadTemperatureValues(false)
 	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <ReadTemperatureValues Fahrenheit>")
 
-	relayToDDPDev.ReadTemperatureValuesResponse(false, []int8{ -42 })
+	relayToDDPDev.ReadTemperatureValuesResponse(false, []int8{-42})
 	ddpHandler.Verify("01/1c (type 139c) -> 01/14: <ReadTemperatureValuesResponse Fahrenheit -42>")
 
 	ddpToRelayDev.SingleChannelControl(7, LIGHT_LEVEL_ON, 0)
@@ -1057,9 +1057,9 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 
 	relayToAllDev.SingleChannelControlResponse(7, true, LIGHT_LEVEL_ON,
 		parseChannelStatus("---------------"))
- 	ddpHandler.Verify("01/1c (type 139c) -> ff/ff: <SingleChannelControlResponse 7/true/100/--------------->")
+	ddpHandler.Verify("01/1c (type 139c) -> ff/ff: <SingleChannelControlResponse 7/true/100/--------------->")
 
-	relayToAllDev.ZoneBeastBroadcast([]byte{ 0 }, parseChannelStatus("------x--------"))
+	relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("------x--------"))
 	ddpHandler.Verify("01/1c (type 139c) -> ff/ff: <ZoneBeastBroadcast [0]/------x-------->")
 
 	// DDP commands
@@ -1095,7 +1095,7 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 	appHandler.Verify("01/14 (type 0095) -> 03/fe: <AssignPanelButtonResponse 1/1>")
 
 	appToDDPDev.SetPanelButtonModes(
-		[16]string {
+		[16]string{
 			"Invalid",
 			"SingleOnOff",
 			"SingleOnOff",
@@ -1131,7 +1131,7 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 			0x53, 0x03, 0x00, 0x00,
 			0x00, 0x00, 0x30, 0xc3,
 		},
-		[]uint8 {
+		[]uint8{
 			0x32, 0x2c, 0x32, 0x30,
 		})
 	appHandler.Verify("01/14 (type 0095) -> 03/fe: " +
@@ -1142,7 +1142,7 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 			0x53, 0x03, 0x00, 0x00,
 			0x00, 0x00, 0x30, 0xc3,
 		},
-		[]uint8 {})
+		[]uint8{})
 	appHandler.Verify("01/14 (type 0095) -> 03/fe: " +
 		"<ReadMACAddressResponse 53:03:00:00:00:00:30:c3 []>")
 

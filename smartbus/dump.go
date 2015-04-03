@@ -10,7 +10,7 @@ import (
 )
 
 type MessageFormatter struct {
-	AddMessage func (format string, args... interface{})
+	AddMessage func(format string, args ...interface{})
 }
 
 func formatChannelStatus(status []bool) (result string) {
@@ -24,7 +24,7 @@ func formatChannelStatus(status []bool) (result string) {
 	return
 }
 
-func (f *MessageFormatter) log(header *MessageHeader, format string, args... interface{}) {
+func (f *MessageFormatter) log(header *MessageHeader, format string, args ...interface{}) {
 	f.AddMessage("%02x/%02x (type %04x) -> %02x/%02x: %s",
 		header.OrigSubnetID,
 		header.OrigDeviceID,
@@ -61,7 +61,7 @@ func (f *MessageFormatter) OnZoneBeastBroadcast(msg *ZoneBeastBroadcast,
 }
 
 func (f *MessageFormatter) OnQueryModules(msg *QueryModules, hdr *MessageHeader) {
-	f.log(hdr, "<QueryModules>");
+	f.log(hdr, "<QueryModules>")
 }
 
 func (f *MessageFormatter) OnQueryModulesResponse(msg *QueryModulesResponse,
@@ -72,10 +72,10 @@ func (f *MessageFormatter) OnQueryModulesResponse(msg *QueryModulesResponse,
 		msg.DeviceCategory,
 		msg.ChannelNo,
 		msg.HVACSubnetID,
-		msg.HVACDeviceID);
+		msg.HVACDeviceID)
 }
 
-var panelControlTypes map[uint8]string = map[uint8]string {
+var panelControlTypes map[uint8]string = map[uint8]string{
 	0x00: "Invalid",
 	0x01: "IR Receiver",
 	0x02: "Button Lock",
@@ -103,7 +103,7 @@ func (f *MessageFormatter) OnQueryFanController(msg *QueryFanController,
 }
 
 func (f *MessageFormatter) OnQueryPanelButtonAssignment(msg *QueryPanelButtonAssignment,
-	hdr* MessageHeader) {
+	hdr *MessageHeader) {
 	f.log(hdr, "<QueryPanelButtonAssignment %v/%v>", msg.ButtonNo, msg.FunctionNo)
 }
 
@@ -142,7 +142,7 @@ func (f *MessageFormatter) OnAssignPanelButtonResponse(msg *AssignPanelButtonRes
 func (f *MessageFormatter) OnSetPanelButtonModes(msg *SetPanelButtonModes, hdr *MessageHeader) {
 	m := make([]string, len(msg.Modes))
 	for i, mode := range msg.Modes {
-		m[i] = fmt.Sprintf("%d/%d:%s", i / 4 + 1, i % 4 + 1, mode)
+		m[i] = fmt.Sprintf("%d/%d:%s", i/4+1, i%4+1, mode)
 	}
 	f.log(hdr, "<SetPanelButtonModes %v>", strings.Join(m, ","))
 }
@@ -172,7 +172,7 @@ func (f *MessageFormatter) OnReadMACAddressResponse(msg *ReadMACAddressResponse,
 		strings.Join(remarkParts, " "))
 }
 
-func (f *MessageFormatter) OnReadTemperatureValues(msg *ReadTemperatureValues, hdr* MessageHeader) {
+func (f *MessageFormatter) OnReadTemperatureValues(msg *ReadTemperatureValues, hdr *MessageHeader) {
 	unitStr := "Fahrenheit"
 	if msg.UseCelsius {
 		unitStr = "Celsius"
@@ -181,7 +181,7 @@ func (f *MessageFormatter) OnReadTemperatureValues(msg *ReadTemperatureValues, h
 	f.log(hdr, "<ReadTemperatureValues %s>", unitStr)
 }
 
-func (f *MessageFormatter) OnReadTemperatureValuesResponse(msg *ReadTemperatureValuesResponse, hdr* MessageHeader) {
+func (f *MessageFormatter) OnReadTemperatureValuesResponse(msg *ReadTemperatureValuesResponse, hdr *MessageHeader) {
 	unitStr := "Fahrenheit"
 	if msg.UseCelsius {
 		unitStr = "Celsius"
@@ -202,7 +202,7 @@ type MessageDumper struct {
 func NewMessageDumper(prefix string) *MessageDumper {
 	return &MessageDumper{
 		MessageFormatter{
-			func (format string, args... interface{}) {
+			func(format string, args ...interface{}) {
 				s := fmt.Sprintf(format, args...)
 				log.Printf("%s: %s", prefix, s)
 			},

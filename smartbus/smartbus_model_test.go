@@ -1,20 +1,20 @@
 package smartbus
 
 import (
-	"net"
 	"fmt"
+	wbgo "github.com/contactless/wbgo"
+	"net"
 	"testing"
-        wbgo "github.com/contactless/wbgo"
 )
 
 func doTestSmartbusDriver(t *testing.T,
-	thunk func (conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker,
+	thunk func(conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker,
 		handler *FakeHandler, client *wbgo.FakeMQTTClient)) {
 
 	p, r := net.Pipe()
 
 	broker := wbgo.NewFakeMQTTBroker(t)
-	model := NewSmartbusModel(func () (SmartbusIO, error) {
+	model := NewSmartbusModel(func() (SmartbusIO, error) {
 		return NewStreamIO(p, nil), nil
 	}, SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID, SAMPLE_APP_DEVICE_TYPE)
 	client := broker.MakeClient("tst")
@@ -42,11 +42,11 @@ func VerifyVirtualRelays(broker *wbgo.FakeMQTTBroker) {
 			fmt.Sprintf("Subscribe -- driver: %s/on", path),
 		)
 	}
-        broker.Verify(expected...)
+	broker.Verify(expected...)
 }
 
 func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
-	doTestSmartbusDriver(t, func (conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
+	doTestSmartbusDriver(t, func(conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
 
 		relayEp := conn.MakeSmartbusEndpoint(
 			SAMPLE_SUBNET, SAMPLE_RELAY_DEVICE_ID, SAMPLE_RELAY_DEVICE_TYPE)
@@ -62,12 +62,12 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 				0x53, 0x03, 0x00, 0x00,
 				0x00, 0x00, 0x42, 0x42,
 			},
-			[]uint8 {})
+			[]uint8{})
 		broker.Verify(
 			"driver -> /devices/zonebeast011c/meta/name: [Zone Beast 01:1c] (QoS 1, retained)",
 		)
 
-		relayToAllDev.ZoneBeastBroadcast([]byte{ 0 }, parseChannelStatus("---x"))
+		relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("---x"))
 		broker.Verify(
 			"driver -> /devices/zonebeast011c/controls/Channel 1/meta/type: [switch] (QoS 1, retained)",
 			"driver -> /devices/zonebeast011c/controls/Channel 1/meta/order: [1] (QoS 1, retained)",
@@ -90,7 +90,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 			"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 4/on",
 		)
 
-		relayToAllDev.ZoneBeastBroadcast([]byte{ 0 }, parseChannelStatus("x---"))
+		relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---"))
 		broker.Verify(
 			"driver -> /devices/zonebeast011c/controls/Channel 1: [1] (QoS 1, retained)",
 			"driver -> /devices/zonebeast011c/controls/Channel 4: [0] (QoS 1, retained)",
@@ -108,7 +108,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 		client.Publish(wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 1/on", "0", 1, false})
 		handler.Verify("03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 1/0/0>")
 		relayToAllDev.SingleChannelControlResponse(1, true, LIGHT_LEVEL_OFF, parseChannelStatus("xx--"))
-		relayToAllDev.ZoneBeastBroadcast([]byte{ 0 }, parseChannelStatus("x---")) // outdated response -- must be ignored
+		relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---")) // outdated response -- must be ignored
 		broker.Verify(
 			"tst -> /devices/zonebeast011c/controls/Channel 1/on: [0] (QoS 1)",
 			"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
@@ -116,7 +116,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 
 		driver.Poll()
 		handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
-		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{ 22 })
+		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{22})
 		broker.Verify(
 			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/type: [temperature] (QoS 1, retained)",
 			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/order: [5] (QoS 1, retained)",
@@ -125,7 +125,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 
 		driver.Poll()
 		handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
-		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{ -2 })
+		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{-2})
 		broker.Verify(
 			"driver -> /devices/zonebeast011c/controls/Temp 1: [-2] (QoS 1, retained)",
 		)
@@ -139,7 +139,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 }
 
 func TestSmartbusDriverDDPHandling(t *testing.T) {
-	doTestSmartbusDriver(t, func (conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
+	doTestSmartbusDriver(t, func(conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
 		ddpEp := conn.MakeSmartbusEndpoint(
 			SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID, SAMPLE_DDP_DEVICE_TYPE)
 		ddpEp.Observe(handler)
@@ -153,7 +153,7 @@ func TestSmartbusDriverDDPHandling(t *testing.T) {
 				0x53, 0x03, 0x00, 0x00,
 				0x00, 0x00, 0x30, 0xc3,
 			},
-			[]uint8 {
+			[]uint8{
 				0x20, 0x42, 0x42,
 			})
 		broker.Verify(
@@ -174,7 +174,7 @@ func TestSmartbusDriverDDPHandling(t *testing.T) {
 					uint8(assignment), 100, 0)
 			}
 			path := fmt.Sprintf("/devices/ddp0114/controls/Page%dButton%d",
-				(i - 1) / 4 + 1, (i - 1) % 4 + 1)
+				(i-1)/4+1, (i-1)%4+1)
 			broker.Verify(
 				fmt.Sprintf("driver -> %s/meta/type: [text] (QoS 1, retained)", path),
 				fmt.Sprintf("driver -> %s/meta/order: [%d] (QoS 1, retained)", path, i),

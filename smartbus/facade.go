@@ -1,21 +1,21 @@
 package smartbus
 
 import (
-	"io"
-	"net"
-	"log"
 	"errors"
+	wbgo "github.com/contactless/wbgo"
+	serial "github.com/ivan4th/goserial"
+	"io"
+	"log"
+	"net"
 	"strings"
-        serial "github.com/ivan4th/goserial"
-        wbgo "github.com/contactless/wbgo"
 )
 
 // FIXME
 const (
-	DRIVER_SUBNET = 0x01
-	DRIVER_DEVICE_ID = 0x99
+	DRIVER_SUBNET      = 0x01
+	DRIVER_DEVICE_ID   = 0x99
 	DRIVER_DEVICE_TYPE = 0x1234
-	DRIVER_CLIENT_ID = "smartbus"
+	DRIVER_CLIENT_ID   = "smartbus"
 )
 
 func createStreamIO(stream io.ReadWriteCloser, provideUdpGateway bool) (SmartbusIO, error) {
@@ -31,12 +31,12 @@ func createStreamIO(stream io.ReadWriteCloser, provideUdpGateway bool) (Smartbus
 	}
 	streamIO := NewStreamIO(stream, rawSerialReadCh)
 	dgramIO.Start()
-	go func () {
+	go func() {
 		for frame := range rawUdpReadCh {
 			streamIO.SendRaw(frame)
 		}
 	}()
-	go func () {
+	go func() {
 		for frame := range rawSerialReadCh {
 			dgramIO.SendRaw(frame)
 		}
@@ -48,10 +48,10 @@ func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 	switch {
 	case strings.HasPrefix(serialAddress, "/"):
 		if serial, err := serial.OpenPort(&serial.Config{
-			Name: serialAddress,
-			Baud: 9600,
+			Name:   serialAddress,
+			Baud:   9600,
 			Parity: serial.ParityEven,
-			Size: serial.Byte8,
+			Size:   serial.Byte8,
 		}); err != nil {
 			return nil, err
 		} else {
@@ -82,7 +82,7 @@ func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 }
 
 func NewSmartbusTCPDriver(serialAddress, brokerAddress string, provideUdpGateway bool) (*wbgo.Driver, error) {
-	model := NewSmartbusModel(func () (SmartbusIO, error) {
+	model := NewSmartbusModel(func() (SmartbusIO, error) {
 		return connect(serialAddress, provideUdpGateway)
 	}, DRIVER_SUBNET, DRIVER_DEVICE_ID, DRIVER_DEVICE_TYPE)
 	driver := wbgo.NewDriver(model, wbgo.NewPahoMQTTClient(brokerAddress, DRIVER_CLIENT_ID, false))

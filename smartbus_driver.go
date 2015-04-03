@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func main () {
+func main() {
 	serial := flag.String("serial", "/dev/ttyNSC1", "serial port address (/dev/... or host:port)")
 	broker := flag.String("broker", "tcp://localhost:1883", "MQTT broker url")
 	gw := flag.Bool("gw", false, "Provide UDP gateway")

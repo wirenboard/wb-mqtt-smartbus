@@ -2,10 +2,10 @@ package smartbus
 
 import (
 	"fmt"
+	wbgo "github.com/contactless/wbgo"
 	"log"
-	"strings"
 	"strconv"
-        wbgo "github.com/contactless/wbgo"
+	"strings"
 )
 
 const (
@@ -20,7 +20,7 @@ type RealDeviceModel interface {
 	Poll()
 }
 
-type DeviceConstructor func (model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel
+type DeviceConstructor func(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel
 
 var smartbusDeviceModelTypes map[uint16]DeviceConstructor = make(map[uint16]DeviceConstructor)
 
@@ -39,7 +39,7 @@ func (dm *VirtualRelayDevice) Publish() {
 		if status {
 			v = "1"
 		}
-		controlName := fmt.Sprintf("VirtualRelay%d", i + 1)
+		controlName := fmt.Sprintf("VirtualRelay%d", i+1)
 		dm.Observer.OnNewControl(dm, controlName, "text", v, false, -1)
 	}
 }
@@ -49,10 +49,10 @@ func (dm *VirtualRelayDevice) SetRelayOn(channelNo int, on bool) {
 		log.Printf("WARNING: invalid virtual relay channel %d", channelNo)
 		return
 	}
-	if dm.channelStatus[channelNo - 1] == on {
+	if dm.channelStatus[channelNo-1] == on {
 		return
 	}
-	dm.channelStatus[channelNo - 1] = on
+	dm.channelStatus[channelNo-1] = on
 	v := "0"
 	if on {
 		v = "1"
@@ -74,7 +74,7 @@ func (dm *VirtualRelayDevice) AcceptOnValue(name, value string) bool {
 	return false
 }
 
-func NewVirtualRelayDevice () *VirtualRelayDevice {
+func NewVirtualRelayDevice() *VirtualRelayDevice {
 	r := &VirtualRelayDevice{}
 	r.DevName = "sbusvrelay"
 	r.DevTitle = "Smartbus Virtual Relays"
@@ -83,24 +83,24 @@ func NewVirtualRelayDevice () *VirtualRelayDevice {
 
 type SmartbusModel struct {
 	wbgo.ModelBase
-	connector Connector
-	deviceMap map[uint16]RealDeviceModel
-	subnetID uint8
-	deviceID uint8
-	deviceType uint16
-	ep *SmartbusEndpoint
+	connector     Connector
+	deviceMap     map[uint16]RealDeviceModel
+	subnetID      uint8
+	deviceID      uint8
+	deviceType    uint16
+	ep            *SmartbusEndpoint
 	virtualRelays *VirtualRelayDevice
-	broadcastDev *SmartbusDevice
+	broadcastDev  *SmartbusDevice
 }
 
 func NewSmartbusModel(connector Connector, subnetID uint8,
 	deviceID uint8, deviceType uint16) (model *SmartbusModel) {
 	model = &SmartbusModel{
-		connector: connector,
-		subnetID: subnetID,
-		deviceID: deviceID,
-		deviceType: deviceType,
-		deviceMap: make(map[uint16]RealDeviceModel),
+		connector:     connector,
+		subnetID:      subnetID,
+		deviceID:      deviceID,
+		deviceType:    deviceType,
+		deviceMap:     make(map[uint16]RealDeviceModel),
 		virtualRelays: NewVirtualRelayDevice(),
 	}
 	return
@@ -140,7 +140,7 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 	construct, found := smartbusDeviceModelTypes[header.OrigDeviceType]
 	if !found {
 		log.Printf("unrecognized device type %04x @ %02x:%02x",
-			header.OrigDeviceType, header.OrigSubnetID, header.OrigDeviceID);
+			header.OrigDeviceType, header.OrigSubnetID, header.OrigDeviceID)
 		return nil
 	}
 
@@ -153,7 +153,7 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 }
 
 func (model *SmartbusModel) OnAnything(msg Message, header *MessageHeader) {
-	model.Observer.CallSync(func () {
+	model.Observer.CallSync(func() {
 		dev := model.ensureDevice(header)
 		if dev != nil {
 			wbgo.Visit(dev, msg, "On")
@@ -170,11 +170,11 @@ func (model *SmartbusModel) VirtualRelayStatus() []bool {
 }
 
 type DeviceModelBase struct {
-	nameBase string
+	nameBase  string
 	titleBase string
-	model *SmartbusModel
-	smartDev *SmartbusDevice
-	Observer wbgo.DeviceObserver
+	model     *SmartbusModel
+	smartDev  *SmartbusDevice
+	Observer  wbgo.DeviceObserver
 }
 
 func (dm *DeviceModelBase) Name() string {
@@ -201,16 +201,16 @@ type ZoneBeastDeviceModel struct {
 	DeviceModelBase
 	channelStatus []bool
 	skipBroadcast bool
-	numTemps int
+	numTemps      int
 }
 
 func NewZoneBeastDeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel {
 	return &ZoneBeastDeviceModel{
 		DeviceModelBase{
-			nameBase: "zonebeast",
+			nameBase:  "zonebeast",
 			titleBase: "Zone Beast",
-			model: model,
-			smartDev: smartDev,
+			model:     model,
+			smartDev:  smartDev,
 		},
 		make([]bool, 0, 100),
 		false,
@@ -247,7 +247,7 @@ func (dm *ZoneBeastDeviceModel) OnSingleChannelControlResponse(msg *SingleChanne
 		return
 	}
 
-	dm.updateSingleChannel(int(msg.ChannelNo - 1), msg.Level != 0)
+	dm.updateSingleChannel(int(msg.ChannelNo-1), msg.Level != 0)
 	// ZoneBeast may send an outdated broadcast after SingleChannelControlResponse (?)
 	dm.skipBroadcast = true
 }
@@ -263,7 +263,7 @@ func (dm *ZoneBeastDeviceModel) OnReadTemperatureValuesResponse(msg *ReadTempera
 	// if it's not using Celsius, it's not for us
 	if msg.UseCelsius {
 		for i, v := range msg.Values {
-			dm.updateTemperatureValue(i + 1, v)
+			dm.updateTemperatureValue(i+1, v)
 		}
 	}
 }
@@ -283,7 +283,7 @@ func (dm *ZoneBeastDeviceModel) updateSingleChannel(n int, isOn bool) {
 	if isOn {
 		v = "1"
 	}
-	dm.Observer.OnValue(dm, fmt.Sprintf("Channel %d", n + 1), v)
+	dm.Observer.OnValue(dm, fmt.Sprintf("Channel %d", n+1), v)
 }
 
 func (dm *ZoneBeastDeviceModel) updateChannelStatus(channelStatus []bool) {
@@ -302,7 +302,7 @@ func (dm *ZoneBeastDeviceModel) updateChannelStatus(channelStatus []bool) {
 		if dm.channelStatus[i] {
 			v = "1"
 		}
-		controlName := fmt.Sprintf("Channel %d", i + 1)
+		controlName := fmt.Sprintf("Channel %d", i+1)
 		dm.Observer.OnNewControl(dm, controlName, "switch", v, false, -1)
 	}
 }
@@ -322,20 +322,20 @@ func (dm *ZoneBeastDeviceModel) updateTemperatureValue(n int, value int8) {
 
 type DDPDeviceModel struct {
 	DeviceModelBase
- 	buttonAssignmentReceived []bool
- 	buttonAssignment []int
-	isNew bool
+	buttonAssignmentReceived  []bool
+	buttonAssignment          []int
+	isNew                     bool
 	pendingAssignmentButtonNo int
-	pendingAssignment int
+	pendingAssignment         int
 }
 
 func NewDDPDeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel {
 	return &DDPDeviceModel{
 		DeviceModelBase{
-			nameBase: "ddp",
+			nameBase:  "ddp",
 			titleBase: "DDP",
-			model: model,
-			smartDev: smartDev,
+			model:     model,
+			smartDev:  smartDev,
 		},
 		make([]bool, PANEL_BUTTON_COUNT),
 		make([]int, PANEL_BUTTON_COUNT),
@@ -347,8 +347,8 @@ func NewDDPDeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) RealDevic
 
 func ddpControlName(buttonNo uint8) string {
 	return fmt.Sprintf("Page%dButton%d",
-		(buttonNo - 1) / 4 + 1,
-		(buttonNo - 1) % 4 + 1)
+		(buttonNo-1)/4+1,
+		(buttonNo-1)%4+1)
 }
 
 func (dm *DDPDeviceModel) Type() uint16 { return 0x0095 }
@@ -386,20 +386,20 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 		msg.CommandDeviceID == dm.model.deviceID {
 		v = int(msg.ChannelNo)
 	}
-	dm.buttonAssignment[msg.ButtonNo - 1] = v
+	dm.buttonAssignment[msg.ButtonNo-1] = v
 
 	controlName := ddpControlName(msg.ButtonNo)
 
-	if dm.buttonAssignmentReceived[msg.ButtonNo - 1] {
+	if dm.buttonAssignmentReceived[msg.ButtonNo-1] {
 		dm.Observer.OnValue(dm, controlName, strconv.Itoa(v))
 	} else {
-		dm.buttonAssignmentReceived[msg.ButtonNo - 1] = true
+		dm.buttonAssignmentReceived[msg.ButtonNo-1] = true
 		dm.Observer.OnNewControl(dm, controlName, "text", strconv.Itoa(v), false, -1)
 	}
 
 	// TBD: this is not quite correct, should wait w/timeout etc.
 	if msg.ButtonNo < PANEL_BUTTON_COUNT {
-		dm.smartDev.QueryPanelButtonAssignment(msg.ButtonNo + 1, 1)
+		dm.smartDev.QueryPanelButtonAssignment(msg.ButtonNo+1, 1)
 	}
 }
 
@@ -454,21 +454,21 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 		log.Printf("bad button param: %s", name)
 		return false
 	}
- 
-	pageButtonNo, err := strconv.Atoi(s1[idx + 6:])
+
+	pageButtonNo, err := strconv.Atoi(s1[idx+6:])
 	if err != nil {
 		log.Printf("bad button param: %s", name)
 		return false
 	}
 
-	buttonNo := (pageNo - 1) * 4 + pageButtonNo
+	buttonNo := (pageNo-1)*4 + pageButtonNo
 
 	newAssignment, err := strconv.Atoi(value)
-	if err != nil || newAssignment <= 0 || newAssignment > NUM_VIRTUAL_RELAYS{
+	if err != nil || newAssignment <= 0 || newAssignment > NUM_VIRTUAL_RELAYS {
 		log.Printf("bad button assignment value: %s", value)
 		return false
 	}
-	
+
 	for _, isReceived := range dm.buttonAssignmentReceived {
 		if !isReceived {
 			// TBD: fix this
@@ -479,7 +479,7 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 
 	var modes [PANEL_BUTTON_COUNT]string
 	for i, assignment := range dm.buttonAssignment {
-		if buttonNo == i + 1 {
+		if buttonNo == i+1 {
 			assignment = newAssignment
 			dm.buttonAssignment[i] = newAssignment
 		}
@@ -497,7 +497,7 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 	return false
 }
 
-func init () {
+func init() {
 	RegisterDeviceModelType(NewZoneBeastDeviceModel)
 	RegisterDeviceModelType(NewDDPDeviceModel)
 }

@@ -36,7 +36,7 @@ var crc16tab []uint16 = []uint16{
 }
 
 func update_crc16(b uint8, prev uint16) uint16 {
-	return ((prev << 8) ^ crc16tab[(prev >> 8) ^ uint16(b)]) & 0xffff
+	return ((prev << 8) ^ crc16tab[(prev>>8)^uint16(b)]) & 0xffff
 }
 
 func crc16(bs []uint8) uint16 {

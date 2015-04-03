@@ -1,11 +1,11 @@
 package smartbus
 
 import (
-	"io"
 	"encoding/binary"
-	"log"
-	"fmt"
 	"errors"
+	"fmt"
+	"io"
+	"log"
 	"reflect"
 )
 
@@ -17,13 +17,13 @@ func ReadChannelStatusField(reader io.Reader, value reflect.Value) error {
 	}
 	status := make([]bool, n)
 	if n > 0 {
-		bs := make([]uint8, (n + 7) / 8)
+		bs := make([]uint8, (n+7)/8)
 		if _, err := io.ReadFull(reader, bs); err != nil {
 			log.Printf("error reading channel status: %v", err)
 			return err
 		}
 		for i := range status {
-			status[i] = (bs[i / 8] >> uint(i % 8)) & 1 == 1
+			status[i] = (bs[i/8]>>uint(i%8))&1 == 1
 		}
 	}
 
@@ -39,10 +39,10 @@ func WriteChannelStatusField(writer io.Writer, value reflect.Value) error {
 	if len(status) == 0 {
 		return nil
 	}
-	bs := make([]uint8, (len(status) + 7) / 8)
+	bs := make([]uint8, (len(status)+7)/8)
 	for i, v := range status {
 		if v {
-			bs[i / 8] |= 1 << uint(i % 8)
+			bs[i/8] |= 1 << uint(i%8)
 		}
 	}
 	return binary.Write(writer, binary.BigEndian, bs)
@@ -133,18 +133,18 @@ func WriteTemperatureListField(writer io.Writer, value reflect.Value) error {
 
 // ------
 
-type FieldReadFunc func (reader io.Reader, value reflect.Value) error
-type FieldWriteFunc func (writer io.Writer, value reflect.Value) error
+type FieldReadFunc func(reader io.Reader, value reflect.Value) error
+type FieldWriteFunc func(writer io.Writer, value reflect.Value) error
 
 type converter struct {
-	read FieldReadFunc
+	read  FieldReadFunc
 	write FieldWriteFunc
 }
 
-func uint8converter(fromRaw func (uint8) (interface{}, error),
-	toRaw func (interface{}) (uint8, error)) converter {
+func uint8converter(fromRaw func(uint8) (interface{}, error),
+	toRaw func(interface{}) (uint8, error)) converter {
 	return converter{
-		func (reader io.Reader, value reflect.Value) (err error) {
+		func(reader io.Reader, value reflect.Value) (err error) {
 			var b uint8
 			if err = binary.Read(reader, binary.BigEndian, &b); err != nil {
 				return
@@ -154,7 +154,7 @@ func uint8converter(fromRaw func (uint8) (interface{}, error),
 			}
 			return
 		},
-		func (writer io.Writer, value reflect.Value) error {
+		func(writer io.Writer, value reflect.Value) error {
 			if r, err := toRaw(value.Interface()); err != nil {
 				return err
 			} else {
@@ -170,14 +170,14 @@ func uint8MapConverter(m map[uint8]interface{}) converter {
 		revMap[v] = k
 	}
 	return uint8converter(
-		func (in uint8) (interface{}, error) {
+		func(in uint8) (interface{}, error) {
 			v, found := m[in]
 			if !found {
 				return nil, fmt.Errorf("cannot map uint8 value: %v", in)
 			}
 			return v, nil
 		},
-		func (in interface{}) (uint8, error) {
+		func(in interface{}) (uint8, error) {
 			v, found := revMap[in]
 			if !found {
 				return 0, fmt.Errorf("cannot reverse map value to uint8: %v", in)
@@ -196,7 +196,7 @@ func uint8NameListConverter(names []string) converter {
 
 func arrayConverter(itemConverter converter) converter {
 	return converter{
-		func (reader io.Reader, value reflect.Value) (err error) {
+		func(reader io.Reader, value reflect.Value) (err error) {
 			for i, n := 0, value.Len(); i < n; i++ {
 				if err = itemConverter.read(reader, value.Index(i)); err != nil {
 					return
@@ -204,7 +204,7 @@ func arrayConverter(itemConverter converter) converter {
 			}
 			return
 		},
-		func (writer io.Writer, value reflect.Value) (err error) {
+		func(writer io.Writer, value reflect.Value) (err error) {
 			for i, n := 0, value.Len(); i < n; i++ {
 				if err = itemConverter.write(writer, value.Index(i)); err != nil {
 					return
@@ -216,19 +216,19 @@ func arrayConverter(itemConverter converter) converter {
 }
 
 var converterMap map[string]converter = map[string]converter{
-	"flag": uint8MapConverter(map[uint8]interface{} {
+	"flag": uint8MapConverter(map[uint8]interface{}{
 		0x00: false,
 		0x01: true,
 	}),
-	"success": uint8MapConverter(map[uint8]interface{} {
+	"success": uint8MapConverter(map[uint8]interface{}{
 		0xf8: true,
 		0xf5: false,
 	}),
 	"channelStatus": {ReadChannelStatusField, WriteChannelStatusField},
-	"zoneStatus": {ReadZoneStatusField, WriteZoneStatusField},
+	"zoneStatus":    {ReadZoneStatusField, WriteZoneStatusField},
 	"panelButtonModes": arrayConverter(
 		uint8NameListConverter(
-			[]string {
+			[]string{
 				"Invalid",
 				"SingleOnOff",
 				"SingleOn",
@@ -241,9 +241,9 @@ var converterMap map[string]converter = map[string]converter{
 				"SeparateLeftRightCombinationOnOff",
 				"LeftOffRightOn",
 			})),
-	"remark": {ReadRemarkField, WriteRemarkField},
+	"remark":   {ReadRemarkField, WriteRemarkField},
 	"templist": {ReadTemperatureListField, WriteTemperatureListField},
-};
+}
 
 func ReadTaggedField(reader io.Reader, value reflect.Value, tag string) error {
 	converter, found := converterMap[tag]
@@ -262,7 +262,7 @@ func ParseMessage(reader io.Reader, message interface{}) (err error) {
 	t := v.Type()
 	for i, n := 0, t.NumField(); i < n; i++ {
 		field := t.Field(i)
-		fieldVal := v.Field(i);
+		fieldVal := v.Field(i)
 		tag := field.Tag.Get("sbus")
 		if tag == "" {
 			err = binary.Read(reader, binary.BigEndian, fieldVal.Addr().Interface())
@@ -293,7 +293,7 @@ func WriteMessage(writer io.Writer, message interface{}) (err error) {
 	t := v.Type()
 	for i, n := 0, t.NumField(); i < n; i++ {
 		field := t.Field(i)
-		fieldVal := v.Field(i);
+		fieldVal := v.Field(i)
 		tag := field.Tag.Get("sbus")
 		if tag == "" {
 			err = binary.Write(writer, binary.BigEndian, fieldVal.Addr().Interface())
@@ -335,7 +335,7 @@ func MakePreprocessedPacketParser(construct func() Message) PacketParser {
 	return func(reader io.Reader) (interface{}, error) {
 		msg := construct()
 		preprocess := msg.(PreprocessedMessage)
-		err := preprocess.FromRaw(func (raw interface{}) error {
+		err := preprocess.FromRaw(func(raw interface{}) error {
 			if err := ParseMessage(reader, raw); err != nil {
 				log.Printf("error parsing the message: %v", err)
 				return err
@@ -352,7 +352,7 @@ func MakePreprocessedPacketParser(construct func() Message) PacketParser {
 
 var recognizedMessages map[uint16]PacketParser = make(map[uint16]PacketParser)
 
-func RegisterMessage(construct func () Message) {
+func RegisterMessage(construct func() Message) {
 	msg := construct()
 	var parser PacketParser
 	switch msg.(type) {
