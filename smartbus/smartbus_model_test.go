@@ -119,6 +119,7 @@ func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
 		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{22})
 		broker.Verify(
 			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/type: [temperature] (QoS 1, retained)",
+			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/readonly: [1] (QoS 1, retained)",
 			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/order: [5] (QoS 1, retained)",
 			"driver -> /devices/zonebeast011c/controls/Temp 1: [22] (QoS 1, retained)",
 		)
