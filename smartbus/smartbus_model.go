@@ -15,7 +15,7 @@ const (
 type Connector func() (SmartbusIO, error)
 
 type RealDeviceModel interface {
-	wbgo.DeviceModel
+	wbgo.LocalDeviceModel
 	Type() uint16
 	Poll()
 }
@@ -72,6 +72,10 @@ func (dm *VirtualRelayDevice) AcceptValue(name, value string) {
 func (dm *VirtualRelayDevice) AcceptOnValue(name, value string) bool {
 	// virtual relays cannot be changed
 	return false
+}
+
+func (dm *VirtualRelayDevice) IsVirtual() bool {
+	return true
 }
 
 func NewVirtualRelayDevice() *VirtualRelayDevice {
@@ -196,6 +200,8 @@ func (dev *DeviceModelBase) AcceptValue(name, value string) {
 func (dev *DeviceModelBase) OnReadMACAddressResponse(msg *ReadMACAddressResponse) {
 	log.Printf("Got MAC address query response from %s (%s)", dev.Name(), dev.Title())
 }
+
+func (dev *DeviceModelBase) IsVirtual() bool { return false }
 
 type ZoneBeastDeviceModel struct {
 	DeviceModelBase
