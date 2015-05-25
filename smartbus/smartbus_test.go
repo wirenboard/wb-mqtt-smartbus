@@ -835,6 +835,9 @@ func VerifyWrite(t *testing.T, mtc MessageTestCase, bs []byte) {
 }
 
 func TestSingleFrame(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	for _, mtc := range messageTestCases {
 		p, r := io.Pipe()
 
@@ -870,6 +873,9 @@ func TestSingleFrame(t *testing.T) {
 }
 
 func TestWriteRaw(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	for _, mtc := range messageTestCases {
 		p, r := io.Pipe()
 		ch := make(chan interface{})
@@ -888,6 +894,9 @@ func TestWriteRaw(t *testing.T) {
 }
 
 func TestMultiRead(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	cap := 0
 	for _, mtc := range messageTestCases {
 		cap += len(mtc.Packet)
@@ -915,6 +924,9 @@ func TestMultiRead(t *testing.T) {
 }
 
 func TestResync(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureGotErrors(t)
+
 	bs := append([]uint8{
 		0xaa, // Sync1
 		0x00, // oops! bad sync
@@ -948,6 +960,9 @@ func TestResync(t *testing.T) {
 }
 
 func TestReadLocking(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	mtc := messageTestCases[0]
 	p, r := io.Pipe()
 	ch := make(chan *SmartbusMessage)
@@ -995,6 +1010,9 @@ func NewFakeHandler(t *testing.T) (handler *FakeHandler) {
 }
 
 func TestSmartbusEndpointSend(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	p, r := net.Pipe() // we need bidirectional pipe here
 
 	handler := NewFakeHandler(t)
@@ -1017,6 +1035,9 @@ func TestSmartbusEndpointSend(t *testing.T) {
 }
 
 func TestSmartbusEndpointReceive(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	p, r := net.Pipe()
 	handler := NewFakeHandler(t)
 	conn := NewSmartbusConnection(NewStreamIO(p, nil))
@@ -1033,6 +1054,9 @@ func TestSmartbusEndpointReceive(t *testing.T) {
 }
 
 func TestSmartbusEndpointSendReceive(t *testing.T) {
+	wbgo.SetupTestLogging(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
+
 	p, r := net.Pipe()
 
 	ddpHandler := NewFakeHandler(t)

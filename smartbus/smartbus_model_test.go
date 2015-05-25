@@ -2,14 +2,22 @@ package smartbus
 
 import (
 	"fmt"
-	wbgo "github.com/contactless/wbgo"
+	"github.com/contactless/wbgo"
 	"net"
 	"testing"
 )
 
-func doTestSmartbusDriver(t *testing.T,
-	thunk func(conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker,
-		handler *FakeHandler, client *wbgo.FakeMQTTClient)) {
+type smartbusDriverFixture struct {
+	client  *wbgo.FakeMQTTClient
+	broker  *wbgo.FakeMQTTBroker
+	driver  *wbgo.Driver
+	model   *SmartbusModel
+	handler *FakeHandler
+	conn    *SmartbusConnection
+}
+
+func newSmartbusDriverFixture(t *testing.T) *smartbusDriverFixture {
+	wbgo.SetupTestLogging(t)
 
 	p, r := net.Pipe()
 
@@ -24,10 +32,14 @@ func doTestSmartbusDriver(t *testing.T,
 
 	handler := NewFakeHandler(t)
 	conn := NewSmartbusConnection(NewStreamIO(r, nil))
-	thunk(conn, driver, broker, handler, client)
+	return &smartbusDriverFixture{client, broker, driver, model, handler, conn}
 }
 
-func VerifyVirtualRelays(broker *wbgo.FakeMQTTBroker) {
+func (fixture *smartbusDriverFixture) Verify(expected ...string) {
+	fixture.broker.Verify(expected...)
+}
+
+func (fixture *smartbusDriverFixture) VerifyVirtualRelays() {
 	expected := make([]string, 0, 100)
 	expected = append(
 		expected,
@@ -42,195 +54,202 @@ func VerifyVirtualRelays(broker *wbgo.FakeMQTTBroker) {
 			fmt.Sprintf("Subscribe -- driver: %s/on", path),
 		)
 	}
-	broker.Verify(expected...)
+	fixture.Verify(expected...)
 }
 
 func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
-	doTestSmartbusDriver(t, func(conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
+	fixture := newSmartbusDriverFixture(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
 
-		relayEp := conn.MakeSmartbusEndpoint(
-			SAMPLE_SUBNET, SAMPLE_RELAY_DEVICE_ID, SAMPLE_RELAY_DEVICE_TYPE)
-		relayEp.Observe(handler)
-		relayToAllDev := relayEp.GetBroadcastDevice()
-		relaytoAppDev := relayEp.GetSmartbusDevice(SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
+	relayEp := fixture.conn.MakeSmartbusEndpoint(
+		SAMPLE_SUBNET, SAMPLE_RELAY_DEVICE_ID, SAMPLE_RELAY_DEVICE_TYPE)
+	relayEp.Observe(fixture.handler)
+	relayToAllDev := relayEp.GetBroadcastDevice()
+	relaytoAppDev := relayEp.GetSmartbusDevice(SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
 
-		driver.Start()
-		VerifyVirtualRelays(broker)
-		handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
-		relaytoAppDev.ReadMACAddressResponse(
-			[8]byte{
-				0x53, 0x03, 0x00, 0x00,
-				0x00, 0x00, 0x42, 0x42,
-			},
-			[]uint8{})
-		broker.Verify(
-			"driver -> /devices/zonebeast011c/meta/name: [Zone Beast 01:1c] (QoS 1, retained)",
-		)
+	fixture.driver.Start()
+	fixture.VerifyVirtualRelays()
+	fixture.handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
+	relaytoAppDev.ReadMACAddressResponse(
+		[8]byte{
+			0x53, 0x03, 0x00, 0x00,
+			0x00, 0x00, 0x42, 0x42,
+		},
+		[]uint8{})
+	fixture.Verify(
+		"driver -> /devices/zonebeast011c/meta/name: [Zone Beast 01:1c] (QoS 1, retained)",
+	)
 
-		relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("---x"))
-		broker.Verify(
-			"driver -> /devices/zonebeast011c/controls/Channel 1/meta/type: [switch] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 1/meta/order: [1] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
-			"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 1/on",
+	relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("---x"))
+	fixture.Verify(
+		"driver -> /devices/zonebeast011c/controls/Channel 1/meta/type: [switch] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 1/meta/order: [1] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
+		"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 1/on",
 
-			"driver -> /devices/zonebeast011c/controls/Channel 2/meta/type: [switch] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 2/meta/order: [2] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 2: [0] (QoS 1, retained)",
-			"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 2/on",
+		"driver -> /devices/zonebeast011c/controls/Channel 2/meta/type: [switch] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 2/meta/order: [2] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 2: [0] (QoS 1, retained)",
+		"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 2/on",
 
-			"driver -> /devices/zonebeast011c/controls/Channel 3/meta/type: [switch] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 3/meta/order: [3] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 3: [0] (QoS 1, retained)",
-			"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 3/on",
+		"driver -> /devices/zonebeast011c/controls/Channel 3/meta/type: [switch] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 3/meta/order: [3] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 3: [0] (QoS 1, retained)",
+		"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 3/on",
 
-			"driver -> /devices/zonebeast011c/controls/Channel 4/meta/type: [switch] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 4/meta/order: [4] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 4: [1] (QoS 1, retained)",
-			"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 4/on",
-		)
+		"driver -> /devices/zonebeast011c/controls/Channel 4/meta/type: [switch] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 4/meta/order: [4] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 4: [1] (QoS 1, retained)",
+		"Subscribe -- driver: /devices/zonebeast011c/controls/Channel 4/on",
+	)
 
-		relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---"))
-		broker.Verify(
-			"driver -> /devices/zonebeast011c/controls/Channel 1: [1] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Channel 4: [0] (QoS 1, retained)",
-		)
+	relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---"))
+	fixture.Verify(
+		"driver -> /devices/zonebeast011c/controls/Channel 1: [1] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Channel 4: [0] (QoS 1, retained)",
+	)
 
-		client.Publish(wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 2/on", "1", 1, false})
-		// note that SingleChannelControlResponse carries pre-command channel status
-		handler.Verify("03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
-		relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
-		broker.Verify(
-			"tst -> /devices/zonebeast011c/controls/Channel 2/on: [1] (QoS 1)",
-			"driver -> /devices/zonebeast011c/controls/Channel 2: [1] (QoS 1, retained)",
-		)
+	fixture.client.Publish(
+		wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 2/on", "1", 1, false})
+	// note that SingleChannelControlResponse carries pre-command channel status
+	fixture.handler.Verify(
+		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
+	relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
+	fixture.Verify(
+		"tst -> /devices/zonebeast011c/controls/Channel 2/on: [1] (QoS 1)",
+		"driver -> /devices/zonebeast011c/controls/Channel 2: [1] (QoS 1, retained)",
+	)
 
-		client.Publish(wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 1/on", "0", 1, false})
-		handler.Verify("03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 1/0/0>")
-		relayToAllDev.SingleChannelControlResponse(1, true, LIGHT_LEVEL_OFF, parseChannelStatus("xx--"))
-		relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---")) // outdated response -- must be ignored
-		broker.Verify(
-			"tst -> /devices/zonebeast011c/controls/Channel 1/on: [0] (QoS 1)",
-			"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
-		)
+	fixture.client.Publish(
+		wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 1/on", "0", 1, false})
+	fixture.handler.Verify(
+		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 1/0/0>")
+	relayToAllDev.SingleChannelControlResponse(1, true, LIGHT_LEVEL_OFF, parseChannelStatus("xx--"))
+	relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---")) // outdated response -- must be ignored
+	fixture.Verify(
+		"tst -> /devices/zonebeast011c/controls/Channel 1/on: [0] (QoS 1)",
+		"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
+	)
 
-		driver.Poll()
-		handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
-		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{22})
-		broker.Verify(
-			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/type: [temperature] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/readonly: [1] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Temp 1/meta/order: [5] (QoS 1, retained)",
-			"driver -> /devices/zonebeast011c/controls/Temp 1: [22] (QoS 1, retained)",
-		)
+	fixture.driver.Poll()
+	fixture.handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
+	relayToAllDev.ReadTemperatureValuesResponse(true, []int8{22})
+	fixture.Verify(
+		"driver -> /devices/zonebeast011c/controls/Temp 1/meta/type: [temperature] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Temp 1/meta/readonly: [1] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Temp 1/meta/order: [5] (QoS 1, retained)",
+		"driver -> /devices/zonebeast011c/controls/Temp 1: [22] (QoS 1, retained)",
+	)
 
-		driver.Poll()
-		handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
-		relayToAllDev.ReadTemperatureValuesResponse(true, []int8{-2})
-		broker.Verify(
-			"driver -> /devices/zonebeast011c/controls/Temp 1: [-2] (QoS 1, retained)",
-		)
+	fixture.driver.Poll()
+	fixture.handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
+	relayToAllDev.ReadTemperatureValuesResponse(true, []int8{-2})
+	fixture.Verify(
+		"driver -> /devices/zonebeast011c/controls/Temp 1: [-2] (QoS 1, retained)",
+	)
 
-		driver.Stop()
-		conn.Close()
-		broker.Verify(
-			"stop: driver",
-		)
-	})
+	fixture.driver.Stop()
+	fixture.conn.Close()
+	fixture.Verify(
+		"stop: driver",
+	)
 }
 
 func TestSmartbusDriverDDPHandling(t *testing.T) {
-	doTestSmartbusDriver(t, func(conn *SmartbusConnection, driver *wbgo.Driver, broker *wbgo.FakeMQTTBroker, handler *FakeHandler, client *wbgo.FakeMQTTClient) {
-		ddpEp := conn.MakeSmartbusEndpoint(
-			SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID, SAMPLE_DDP_DEVICE_TYPE)
-		ddpEp.Observe(handler)
-		ddpToAppDev := ddpEp.GetSmartbusDevice(SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
+	fixture := newSmartbusDriverFixture(t)
+	defer wbgo.EnsureNoErrorsOrWarnings(t)
 
-		driver.Start()
-		VerifyVirtualRelays(broker)
-		handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
-		ddpToAppDev.ReadMACAddressResponse(
-			[8]byte{
-				0x53, 0x03, 0x00, 0x00,
-				0x00, 0x00, 0x30, 0xc3,
-			},
-			[]uint8{
-				0x20, 0x42, 0x42,
-			})
-		broker.Verify(
-			"driver -> /devices/ddp0114/meta/name: [DDP 01:14] (QoS 1, retained)")
+	ddpEp := fixture.conn.MakeSmartbusEndpoint(
+		SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID, SAMPLE_DDP_DEVICE_TYPE)
+	ddpEp.Observe(fixture.handler)
+	ddpToAppDev := ddpEp.GetSmartbusDevice(SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
 
-		for i := 1; i <= PANEL_BUTTON_COUNT; i++ {
-			handler.Verify(fmt.Sprintf(
-				"03/fe (type fffe) -> 01/14: <QueryPanelButtonAssignment %d/1>", i))
-			assignment := -1
-			if i <= 10 {
-				ddpToAppDev.QueryPanelButtonAssignmentResponse(
-					uint8(i), 1, BUTTON_COMMAND_INVALID, 0, 0, 0, 0, 0)
-			} else {
-				assignment = i - 10
-				ddpToAppDev.QueryPanelButtonAssignmentResponse(
-					uint8(i), 1, BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
-					SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID,
-					uint8(assignment), 100, 0)
-			}
-			path := fmt.Sprintf("/devices/ddp0114/controls/Page%dButton%d",
-				(i-1)/4+1, (i-1)%4+1)
-			broker.Verify(
-				fmt.Sprintf("driver -> %s/meta/type: [text] (QoS 1, retained)", path),
-				fmt.Sprintf("driver -> %s/meta/order: [%d] (QoS 1, retained)", path, i),
-				fmt.Sprintf("driver -> %s: [%d] (QoS 1, retained)", path, assignment),
-				fmt.Sprintf("Subscribe -- driver: %s/on", path),
-			)
+	fixture.driver.Start()
+	defer fixture.driver.Stop()
+	fixture.VerifyVirtualRelays()
+	fixture.handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
+	ddpToAppDev.ReadMACAddressResponse(
+		[8]byte{
+			0x53, 0x03, 0x00, 0x00,
+			0x00, 0x00, 0x30, 0xc3,
+		},
+		[]uint8{
+			0x20, 0x42, 0x42,
+		})
+	fixture.Verify(
+		"driver -> /devices/ddp0114/meta/name: [DDP 01:14] (QoS 1, retained)")
+
+	for i := 1; i <= PANEL_BUTTON_COUNT; i++ {
+		fixture.handler.Verify(fmt.Sprintf(
+			"03/fe (type fffe) -> 01/14: <QueryPanelButtonAssignment %d/1>", i))
+		assignment := -1
+		if i <= 10 {
+			ddpToAppDev.QueryPanelButtonAssignmentResponse(
+				uint8(i), 1, BUTTON_COMMAND_INVALID, 0, 0, 0, 0, 0)
+		} else {
+			assignment = i - 10
+			ddpToAppDev.QueryPanelButtonAssignmentResponse(
+				uint8(i), 1, BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
+				SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID,
+				uint8(assignment), 100, 0)
 		}
+		path := fmt.Sprintf("/devices/ddp0114/controls/Page%dButton%d",
+			(i-1)/4+1, (i-1)%4+1)
+		fixture.Verify(
+			fmt.Sprintf("driver -> %s/meta/type: [text] (QoS 1, retained)", path),
+			fmt.Sprintf("driver -> %s/meta/order: [%d] (QoS 1, retained)", path, i),
+			fmt.Sprintf("driver -> %s: [%d] (QoS 1, retained)", path, assignment),
+			fmt.Sprintf("Subscribe -- driver: %s/on", path),
+		)
+	}
 
-		// second QueryModules shouldn't cause anything
-		ddpToAppDev.QueryModules()
-		handler.Verify()
-		broker.Verify()
+	// second QueryModules shouldn't cause anything
+	ddpToAppDev.QueryModules()
+	fixture.handler.Verify()
+	fixture.Verify()
 
-		client.Publish(wbgo.MQTTMessage{"/devices/ddp0114/controls/Page1Button2/on", "10", 1, false})
+	fixture.client.Publish(
+		wbgo.MQTTMessage{"/devices/ddp0114/controls/Page1Button2/on", "10", 1, false})
 
-		handler.Verify("03/fe (type fffe) -> 01/14: " +
-			"<SetPanelButtonModes " +
-			"1/1:Invalid,1/2:SingleOnOff,1/3:Invalid,1/4:Invalid," +
-			"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
-			"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
-			"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
-		ddpToAppDev.SetPanelButtonModesResponse(true)
-		broker.Verify("tst -> /devices/ddp0114/controls/Page1Button2/on: [10] (QoS 1)")
-		handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
-		ddpToAppDev.AssignPanelButtonResponse(2, 1)
-		broker.Verify("driver -> /devices/ddp0114/controls/Page1Button2: [10] (QoS 1, retained)")
+	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+		"<SetPanelButtonModes " +
+		"1/1:Invalid,1/2:SingleOnOff,1/3:Invalid,1/4:Invalid," +
+		"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
+		"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
+		"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
+	ddpToAppDev.SetPanelButtonModesResponse(true)
+	fixture.Verify("tst -> /devices/ddp0114/controls/Page1Button2/on: [10] (QoS 1)")
+	fixture.handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
+	ddpToAppDev.AssignPanelButtonResponse(2, 1)
+	fixture.Verify("driver -> /devices/ddp0114/controls/Page1Button2: [10] (QoS 1, retained)")
 
-		ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_ON, 0)
-		handler.Verify("03/fe (type fffe) -> 01/14: " +
-			"<SingleChannelControlResponse 10/true/100/" +
-			"---------x----->")
-		broker.Verify(
-			"driver -> /devices/sbusvrelay/controls/VirtualRelay10: [1] (QoS 1, retained)")
+	ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_ON, 0)
+	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+		"<SingleChannelControlResponse 10/true/100/" +
+		"---------x----->")
+	fixture.Verify(
+		"driver -> /devices/sbusvrelay/controls/VirtualRelay10: [1] (QoS 1, retained)")
 
-		ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_ON, 0)
-		handler.Verify("03/fe (type fffe) -> 01/14: " +
-			"<SingleChannelControlResponse 12/true/100/" +
-			"---------x-x--->")
-		broker.Verify(
-			"driver -> /devices/sbusvrelay/controls/VirtualRelay12: [1] (QoS 1, retained)")
+	ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_ON, 0)
+	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+		"<SingleChannelControlResponse 12/true/100/" +
+		"---------x-x--->")
+	fixture.Verify(
+		"driver -> /devices/sbusvrelay/controls/VirtualRelay12: [1] (QoS 1, retained)")
 
-		ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_OFF, 0)
-		handler.Verify("03/fe (type fffe) -> 01/14: " +
-			"<SingleChannelControlResponse 12/true/0/" +
-			"---------x----->")
-		broker.Verify(
-			"driver -> /devices/sbusvrelay/controls/VirtualRelay12: [0] (QoS 1, retained)")
+	ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_OFF, 0)
+	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+		"<SingleChannelControlResponse 12/true/0/" +
+		"---------x----->")
+	fixture.Verify(
+		"driver -> /devices/sbusvrelay/controls/VirtualRelay12: [0] (QoS 1, retained)")
 
-		ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_OFF, 0)
-		handler.Verify("03/fe (type fffe) -> 01/14: " +
-			"<SingleChannelControlResponse 10/true/0/" +
-			"--------------->")
-		broker.Verify(
-			"driver -> /devices/sbusvrelay/controls/VirtualRelay10: [0] (QoS 1, retained)")
-	})
+	ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_OFF, 0)
+	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+		"<SingleChannelControlResponse 10/true/0/" +
+		"--------------->")
+	fixture.broker.Verify(
+		"driver -> /devices/sbusvrelay/controls/VirtualRelay10: [0] (QoS 1, retained)")
 }
 
 // TBD: outdated ZoneBeastBroadcast messages still arrive sometimes, need to fix this
