@@ -2,10 +2,9 @@ package smartbus
 
 import (
 	"errors"
-	wbgo "github.com/contactless/wbgo"
+	"github.com/contactless/wbgo"
 	serial "github.com/ivan4th/goserial"
 	"io"
-	"log"
 	"net"
 	"strings"
 )
@@ -24,7 +23,7 @@ func createStreamIO(stream io.ReadWriteCloser, provideUdpGateway bool) (Smartbus
 	}
 	rawUdpReadCh := make(chan []byte)
 	rawSerialReadCh := make(chan []byte)
-	log.Println("using UDP gateway mode")
+	wbgo.Debug.Println("using UDP gateway mode")
 	dgramIO, err := NewDatagramIO(rawUdpReadCh)
 	if err != nil {
 		return nil, err

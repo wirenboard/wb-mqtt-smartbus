@@ -2,8 +2,7 @@ package smartbus
 
 import (
 	"fmt"
-	wbgo "github.com/contactless/wbgo"
-	"log"
+	"github.com/contactless/wbgo"
 	"strconv"
 	"strings"
 )
@@ -46,7 +45,7 @@ func (dm *VirtualRelayDevice) Publish() {
 
 func (dm *VirtualRelayDevice) SetRelayOn(channelNo int, on bool) {
 	if channelNo < 1 || channelNo > NUM_VIRTUAL_RELAYS {
-		log.Printf("WARNING: invalid virtual relay channel %d", channelNo)
+		wbgo.Warn.Printf("invalid virtual relay channel %d", channelNo)
 		return
 	}
 	if dm.channelStatus[channelNo-1] == on {
@@ -143,7 +142,7 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 
 	construct, found := smartbusDeviceModelTypes[header.OrigDeviceType]
 	if !found {
-		log.Printf("unrecognized device type %04x @ %02x:%02x",
+		wbgo.Debug.Printf("unrecognized device type %04x @ %02x:%02x",
 			header.OrigDeviceType, header.OrigSubnetID, header.OrigDeviceID)
 		return nil
 	}
@@ -198,7 +197,7 @@ func (dev *DeviceModelBase) AcceptValue(name, value string) {
 }
 
 func (dev *DeviceModelBase) OnReadMACAddressResponse(msg *ReadMACAddressResponse) {
-	log.Printf("Got MAC address query response from %s (%s)", dev.Name(), dev.Title())
+	wbgo.Debug.Printf("Got MAC address query response from %s (%s)", dev.Name(), dev.Title())
 }
 
 func (dev *DeviceModelBase) IsVirtual() bool { return false }
@@ -231,10 +230,10 @@ func (dm *ZoneBeastDeviceModel) Poll() {
 }
 
 func (dm *ZoneBeastDeviceModel) AcceptOnValue(name, value string) bool {
-	log.Printf("ZoneBeastDeviceModel.AcceptOnValue(%v, %v)", name, value)
+	wbgo.Debug.Printf("ZoneBeastDeviceModel.AcceptOnValue(%v, %v)", name, value)
 	channelNo, err := strconv.Atoi(strings.TrimPrefix(name, "Channel "))
 	if err != nil {
-		log.Printf("bad channel name: %s", name)
+		wbgo.Warn.Printf("bad channel name: %s", name)
 		return false
 	}
 	level := uint8(LIGHT_LEVEL_OFF)
@@ -249,7 +248,7 @@ func (dm *ZoneBeastDeviceModel) AcceptOnValue(name, value string) bool {
 
 func (dm *ZoneBeastDeviceModel) OnSingleChannelControlResponse(msg *SingleChannelControlResponse) {
 	if !msg.Success {
-		log.Printf("ERROR: unsuccessful SingleChannelControlCommand")
+		wbgo.Error.Printf("ERROR: unsuccessful SingleChannelControlCommand")
 		return
 	}
 
@@ -276,7 +275,7 @@ func (dm *ZoneBeastDeviceModel) OnReadTemperatureValuesResponse(msg *ReadTempera
 
 func (dm *ZoneBeastDeviceModel) updateSingleChannel(n int, isOn bool) {
 	if n >= len(dm.channelStatus) {
-		log.Printf("SmartbusModelDevice.updateSingleChannel(): bad channel number: %d", n)
+		wbgo.Error.Printf("SmartbusModelDevice.updateSingleChannel(): bad channel number: %d", n)
 		return
 	}
 
@@ -383,7 +382,7 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 	// FunctionNo = 1 because we're only querying the first function
 	// in the list currently (multiple functions may be needed for CombinationOn mode etc.)
 	if msg.ButtonNo == 0 || msg.ButtonNo > PANEL_BUTTON_COUNT || msg.FunctionNo != 1 {
-		log.Printf("bad button/fn number: %d/%d", msg.ButtonNo, msg.FunctionNo)
+		wbgo.Error.Printf("bad button/fn number: %d/%d", msg.ButtonNo, msg.FunctionNo)
 	}
 
 	v := -1
@@ -412,7 +411,7 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 func (dm *DDPDeviceModel) OnSetPanelButtonModesResponse(msg *SetPanelButtonModesResponse) {
 	// FIXME
 	if dm.pendingAssignmentButtonNo <= 0 {
-		log.Printf("SetPanelButtonModesResponse without pending assignment")
+		wbgo.Error.Printf("SetPanelButtonModesResponse without pending assignment")
 	}
 	dm.smartDev.AssignPanelButton(
 		uint8(dm.pendingAssignmentButtonNo),
@@ -432,7 +431,7 @@ func (dm *DDPDeviceModel) OnAssignPanelButtonResponse(msg *AssignPanelButtonResp
 		dm.Observer.OnValue(dm, ddpControlName(msg.ButtonNo),
 			strconv.Itoa(dm.pendingAssignment))
 	} else {
-		log.Printf("ERROR: mismatched AssignPanelButtonResponse: %v/%v (pending %d)",
+		wbgo.Error.Printf("mismatched AssignPanelButtonResponse: %v/%v (pending %d)",
 			msg.ButtonNo, msg.FunctionNo, dm.pendingAssignmentButtonNo)
 	}
 	// FIXME (retry)
@@ -449,7 +448,7 @@ func (dm *DDPDeviceModel) OnSingleChannelControlCommand(msg *SingleChannelContro
 func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 	// FIXME
 	if dm.pendingAssignmentButtonNo > 0 {
-		log.Printf("ERROR: button assignment queueing not implemented yet!")
+		wbgo.Error.Printf("button assignment queueing not implemented yet!")
 	}
 
 	s1 := strings.TrimPrefix(name, "Page")
@@ -457,13 +456,13 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 
 	pageNo, err := strconv.Atoi(s1[:idx])
 	if err != nil {
-		log.Printf("bad button param: %s", name)
+		wbgo.Error.Printf("bad button param: %s", name)
 		return false
 	}
 
 	pageButtonNo, err := strconv.Atoi(s1[idx+6:])
 	if err != nil {
-		log.Printf("bad button param: %s", name)
+		wbgo.Error.Printf("bad button param: %s", name)
 		return false
 	}
 
@@ -471,14 +470,14 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 
 	newAssignment, err := strconv.Atoi(value)
 	if err != nil || newAssignment <= 0 || newAssignment > NUM_VIRTUAL_RELAYS {
-		log.Printf("bad button assignment value: %s", value)
+		wbgo.Error.Printf("bad button assignment value: %s", value)
 		return false
 	}
 
 	for _, isReceived := range dm.buttonAssignmentReceived {
 		if !isReceived {
 			// TBD: fix this
-			log.Printf("cannot assign button: DDP device data not ready yet")
+			wbgo.Error.Printf("cannot assign button: DDP device data not ready yet")
 			return false
 		}
 	}

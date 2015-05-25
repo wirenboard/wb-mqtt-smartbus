@@ -4,22 +4,22 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/contactless/wbgo"
 	"io"
-	"log"
 	"reflect"
 )
 
 func ReadChannelStatusField(reader io.Reader, value reflect.Value) error {
 	var n uint8
 	if err := binary.Read(reader, binary.BigEndian, &n); err != nil {
-		log.Printf("error reading channel status count: %v", err)
+		wbgo.Error.Printf("error reading channel status count: %v", err)
 		return err
 	}
 	status := make([]bool, n)
 	if n > 0 {
 		bs := make([]uint8, (n+7)/8)
 		if _, err := io.ReadFull(reader, bs); err != nil {
-			log.Printf("error reading channel status: %v", err)
+			wbgo.Error.Printf("error reading channel status: %v", err)
 			return err
 		}
 		for i := range status {
@@ -53,14 +53,14 @@ func WriteChannelStatusField(writer io.Writer, value reflect.Value) error {
 func ReadZoneStatusField(reader io.Reader, value reflect.Value) error {
 	var n uint8
 	if err := binary.Read(reader, binary.BigEndian, &n); err != nil {
-		log.Printf("error reading zone status count: %v", err)
+		wbgo.Error.Printf("error reading zone status count: %v", err)
 		return err
 	}
 
 	status := make([]uint8, n)
 	if n > 0 {
 		if _, err := io.ReadFull(reader, status); err != nil {
-			log.Printf("error reading zone status: %v", err)
+			wbgo.Error.Printf("error reading zone status: %v", err)
 			return err
 		}
 	}
@@ -324,7 +324,7 @@ func MakeSimplePacketParser(construct func() Message) PacketParser {
 	return func(reader io.Reader) (interface{}, error) {
 		msg := construct()
 		if err := ParseMessage(reader, msg); err != nil {
-			log.Printf("error parsing the message: %v", err)
+			wbgo.Error.Printf("error parsing the message: %v", err)
 			return nil, err
 		}
 		return msg, nil
@@ -337,7 +337,7 @@ func MakePreprocessedPacketParser(construct func() Message) PacketParser {
 		preprocess := msg.(PreprocessedMessage)
 		err := preprocess.FromRaw(func(raw interface{}) error {
 			if err := ParseMessage(reader, raw); err != nil {
-				log.Printf("error parsing the message: %v", err)
+				wbgo.Error.Printf("error parsing the message: %v", err)
 				return err
 			}
 			return nil

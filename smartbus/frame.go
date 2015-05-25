@@ -7,8 +7,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/contactless/wbgo"
 	"io"
-	"log"
 	"sync"
 )
 
@@ -58,7 +58,7 @@ func WriteFrameRaw(writer io.Writer, header MessageHeader, writeMsg func(writer 
 	bs := buf.Bytes()
 	bs[2] = uint8(len(bs)) // minus 2 bytes of signature, but plus 2 bytes of crc
 	binary.Write(buf, binary.BigEndian, crc16(bs[2:]))
-	log.Printf("sending frame:\n%s", hex.Dump(buf.Bytes()))
+	wbgo.Debug.Printf("sending frame:\n%s", hex.Dump(buf.Bytes()))
 	// writing the buffer in parts may cause missed frames
 	writer.Write(buf.Bytes())
 }
@@ -93,7 +93,7 @@ func ReadSync(reader io.Reader, mutex MutexLike) error {
 			return err
 		}
 		if b != 0xaa {
-			log.Printf("unsync byte 0: %02x", b)
+			wbgo.Debug.Printf("unsync byte 0: %02x", b)
 			continue
 		}
 
@@ -106,7 +106,7 @@ func ReadSync(reader io.Reader, mutex MutexLike) error {
 			break
 		}
 
-		log.Printf("unsync byte 1: %02x", b)
+		wbgo.Debug.Printf("unsync byte 1: %02x", b)
 		mutex.Unlock()
 	}
 	// the mutex is locked here
@@ -114,7 +114,7 @@ func ReadSync(reader io.Reader, mutex MutexLike) error {
 }
 
 func ParseFrame(frame []byte) (*SmartbusMessage, error) {
-	log.Printf("parsing frame:\n%s", hex.Dump(frame))
+	wbgo.Debug.Printf("parsing frame:\n%s", hex.Dump(frame))
 	buf := bytes.NewBuffer(frame[1 : len(frame)-2]) // skip len
 	var header MessageHeader
 	if err := binary.Read(buf, binary.BigEndian, &header); err != nil {
@@ -135,23 +135,23 @@ func ParseFrame(frame []byte) (*SmartbusMessage, error) {
 func ReadSmartbusFrame(reader io.Reader) ([]byte, bool) {
 	var l byte
 	if err := binary.Read(reader, binary.BigEndian, &l); err != nil {
-		log.Printf("error reading frame length: %v", err)
+		wbgo.Error.Printf("error reading frame length: %v", err)
 		return nil, false
 	}
 	if l < MIN_FRAME_SIZE {
-		log.Printf("frame too short")
+		wbgo.Error.Printf("frame too short")
 		return nil, true
 	}
 	var frame []byte = make([]byte, l)
 	frame[0] = l
 	if _, err := io.ReadFull(reader, frame[1:]); err != nil {
-		log.Printf("error reading frame body (%d bytes): %v", l, err)
+		wbgo.Error.Printf("error reading frame body (%d bytes): %v", l, err)
 		return nil, false
 	}
 
 	crc := crc16(frame[:len(frame)-2])
 	if crc != binary.BigEndian.Uint16(frame[len(frame)-2:]) {
-		log.Printf("bad crc")
+		wbgo.Error.Printf("bad crc")
 		return nil, true
 	}
 
@@ -163,16 +163,16 @@ func ReadSmartbusRaw(reader io.Reader, mutex MutexLike, frameHandler func(frame 
 	defer func() {
 		switch {
 		case err == io.EOF || err == io.ErrUnexpectedEOF:
-			log.Printf("eof reached")
+			wbgo.Error.Printf("eof reached")
 			return
 		case err != nil:
-			log.Printf("NOTE: connection error: %s", err)
+			wbgo.Error.Printf("NOTE: connection error: %s", err)
 			return
 		}
 	}()
 	for {
 		if err = ReadSync(reader, mutex); err != nil {
-			log.Printf("ReadSync error: %v", err)
+			wbgo.Error.Printf("ReadSync error: %v", err)
 			// the mutex is not locked if ReadSync failed
 			break
 		}
@@ -195,7 +195,7 @@ func ReadSmartbus(reader io.Reader, mutex MutexLike, ch chan SmartbusMessage, ra
 			rawReadCh <- frame
 		}
 		if msg, err := ParseFrame(frame); err != nil {
-			log.Printf("failed to parse smartbus frame: %s", err)
+			wbgo.Error.Printf("failed to parse smartbus frame: %s", err)
 		} else {
 			ch <- *msg
 		}

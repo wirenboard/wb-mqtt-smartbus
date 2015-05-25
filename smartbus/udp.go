@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/contactless/wbgo"
 	"io"
-	"log"
 	"net"
 	"strconv"
 )
@@ -62,11 +62,11 @@ func NewDatagramIO(rawReadCh chan []byte) (*DatagramIO, error) {
 
 func (dgramIO *DatagramIO) processUdpPacket(packet []byte) {
 	if len(packet) < len(udpSignature)+4 {
-		log.Println("packet too short:", hex.Dump(packet))
+		wbgo.Error.Println("packet too short:", hex.Dump(packet))
 		return
 	}
 	if !bytes.Equal(udpSignature, packet[4:len(udpSignature)+4]) {
-		log.Println("invalid udp packet:", hex.Dump(packet))
+		wbgo.Error.Println("invalid udp packet:", hex.Dump(packet))
 		return
 	}
 	if dgramIO.rawReadCh != nil {
@@ -74,7 +74,7 @@ func (dgramIO *DatagramIO) processUdpPacket(packet []byte) {
 		return
 	}
 	if msg, err := ParseFrame(packet[len(udpSignature)+4:]); err != nil {
-		log.Printf("failed to parse smartbus packet: %s", err)
+		wbgo.Error.Printf("failed to parse smartbus packet: %s", err)
 	} else {
 		dgramIO.readCh <- *msg
 	}
@@ -94,7 +94,7 @@ func (dgramIO *DatagramIO) doSend(msg interface{}) {
 		panic("udp: unsupported message object type")
 	}
 	if _, err := dgramIO.conn.WriteToUDP(buf.Bytes(), &dgramIO.smartbusGwAddress); err != nil {
-		log.Printf("UDP SEND ERROR: %s", err)
+		wbgo.Error.Printf("UDP SEND ERROR: %s", err)
 	}
 }
 
@@ -106,10 +106,10 @@ func (dgramIO *DatagramIO) Start() chan SmartbusMessage {
 			// FIXME: check err values when closing the socket from Stop()
 			switch {
 			case err == io.EOF || err == io.ErrUnexpectedEOF:
-				log.Printf("eof reached")
+				wbgo.Error.Printf("eof reached")
 				return
 			case err != nil:
-				log.Printf("NOTE: connection error: %s", err)
+				wbgo.Error.Printf("NOTE: connection error: %s", err)
 				return
 			}
 		}()

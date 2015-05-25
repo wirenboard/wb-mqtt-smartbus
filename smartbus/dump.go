@@ -4,7 +4,7 @@ package smartbus
 
 import (
 	"fmt"
-	"log"
+	"github.com/contactless/wbgo"
 	"strconv"
 	"strings"
 )
@@ -204,7 +204,7 @@ func NewMessageDumper(prefix string) *MessageDumper {
 		MessageFormatter{
 			func(format string, args ...interface{}) {
 				s := fmt.Sprintf(format, args...)
-				log.Printf("%s: %s", prefix, s)
+				wbgo.Debug.Printf("%s: %s", prefix, s)
 			},
 		},
 	}
