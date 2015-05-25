@@ -23,7 +23,7 @@ type DatagramIO struct {
 	conn              *net.UDPConn
 	outgoingIP        net.IP
 	smartbusGwAddress net.UDPAddr
-	readCh            chan SmartbusMessage
+	readCh            chan *SmartbusMessage
 	writeCh           chan interface{}
 	rawReadCh         chan []byte
 }
@@ -48,7 +48,7 @@ func NewDatagramIO(rawReadCh chan []byte) (*DatagramIO, error) {
 	}
 	return &DatagramIO{
 		conn:       conn,
-		readCh:     make(chan SmartbusMessage),
+		readCh:     make(chan *SmartbusMessage),
 		writeCh:    make(chan interface{}),
 		rawReadCh:  rawReadCh,
 		outgoingIP: net.IPv4(255, 255, 255, 255),
@@ -76,7 +76,7 @@ func (dgramIO *DatagramIO) processUdpPacket(packet []byte) {
 	if msg, err := ParseFrame(packet[len(udpSignature)+4:]); err != nil {
 		wbgo.Error.Printf("failed to parse smartbus packet: %s", err)
 	} else {
-		dgramIO.readCh <- *msg
+		dgramIO.readCh <- msg
 	}
 }
 
@@ -98,7 +98,7 @@ func (dgramIO *DatagramIO) doSend(msg interface{}) {
 	}
 }
 
-func (dgramIO *DatagramIO) Start() chan SmartbusMessage {
+func (dgramIO *DatagramIO) Start() chan *SmartbusMessage {
 	go func() {
 		var err error
 		defer func() {

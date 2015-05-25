@@ -27,7 +27,7 @@ func (conn *SmartbusConnection) run() {
 	go func() {
 		for msg := range readCh {
 			for _, ep := range conn.endpoints {
-				ep.maybeHandleMessage(&msg)
+				ep.maybeHandleMessage(msg)
 			}
 		}
 	}()

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -742,39 +743,54 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 // opcode 0x284 - check for adddress conflict
 
 type FakeMutex struct {
-	t         *testing.T
-	locked    bool
-	lockCount int
+	t           *testing.T
+	internalMtx sync.Mutex
+	locked      bool
+	lockCount   int
 }
 
 func NewFakeMutex(t *testing.T) *FakeMutex {
-	return &FakeMutex{t, false, 0}
+	return &FakeMutex{t: t, locked: false, lockCount: 0}
 }
 
 func (mutex *FakeMutex) Lock() {
+	mutex.internalMtx.Lock()
+	defer mutex.internalMtx.Unlock()
 	assert.False(mutex.t, mutex.locked, "recursive locking detected")
 	mutex.locked = true
 	mutex.lockCount++
 }
 
 func (mutex *FakeMutex) Unlock() {
+	mutex.internalMtx.Lock()
+	defer mutex.internalMtx.Unlock()
 	assert.True(mutex.t, mutex.locked, "unlocking a non-locked mutex")
 	mutex.locked = false
 }
 
 func (mutex *FakeMutex) VerifyLocked(count int, msg ...interface{}) {
+	mutex.internalMtx.Lock()
+	defer mutex.internalMtx.Unlock()
 	assert.True(mutex.t, mutex.locked, msg...)
 	assert.Equal(mutex.t, count, mutex.lockCount, msg...)
 }
 
 func (mutex *FakeMutex) VerifyUnlocked(count int, msg ...interface{}) {
+	mutex.internalMtx.Lock()
+	defer mutex.internalMtx.Unlock()
 	assert.False(mutex.t, mutex.locked, msg...)
 	assert.Equal(mutex.t, count, mutex.lockCount, msg...)
 }
 
+func (mutex *FakeMutex) isLocked() bool {
+	mutex.internalMtx.Lock()
+	defer mutex.internalMtx.Unlock()
+	return mutex.locked
+}
+
 func (mutex *FakeMutex) WaitForUnlock() {
 	for i := 0; i < 50; i++ {
-		if !mutex.locked {
+		if !mutex.isLocked() {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -782,7 +798,7 @@ func (mutex *FakeMutex) WaitForUnlock() {
 	mutex.t.Fatalf("timed out waiting for the fake mutex to be unlocked")
 }
 
-func VerifyRead(t *testing.T, mtc MessageTestCase, msg SmartbusMessage) {
+func VerifyRead(t *testing.T, mtc MessageTestCase, msg *SmartbusMessage) {
 	if msg.Header.Opcode != mtc.Opcode {
 		t.Fatalf("VerifyRead: %s: bad opcode in decoded frame: %04x instead of %04x",
 			mtc.Name, msg.Header.Opcode, mtc.Opcode)
@@ -793,11 +809,11 @@ func VerifyRead(t *testing.T, mtc MessageTestCase, msg SmartbusMessage) {
 	assert.Equal(t, mtc.SmartbusMessage.Message, msg.Message, "VerifyRead: %s - message", mtc.Name)
 }
 
-func VerifyReadSingle(t *testing.T, mtc MessageTestCase, ch chan SmartbusMessage) {
+func VerifyReadSingle(t *testing.T, mtc MessageTestCase, ch chan *SmartbusMessage) {
 	var msg *SmartbusMessage
 	for c := range ch {
 		if msg == nil {
-			msg = &c
+			msg = c
 		} else {
 			t.Errorf("VerifyReadSingle: %s: more than one message received", mtc.Name)
 		}
@@ -807,7 +823,7 @@ func VerifyReadSingle(t *testing.T, mtc MessageTestCase, ch chan SmartbusMessage
 		t.Fatalf("VerifyReadSingle: no message received")
 	}
 
-	VerifyRead(t, mtc, *msg)
+	VerifyRead(t, mtc, msg)
 }
 
 func VerifyWrite(t *testing.T, mtc MessageTestCase, bs []byte) {
@@ -822,7 +838,7 @@ func TestSingleFrame(t *testing.T) {
 	for _, mtc := range messageTestCases {
 		p, r := io.Pipe()
 
-		ch := make(chan SmartbusMessage)
+		ch := make(chan *SmartbusMessage)
 		rawCh := make(chan []byte)
 		mtx := NewFakeMutex(t)
 		go ReadSmartbus(p, mtx, ch, rawCh)
@@ -881,7 +897,7 @@ func TestMultiRead(t *testing.T) {
 		buf.Write(mtc.Packet)
 	}
 
-	ch := make(chan SmartbusMessage)
+	ch := make(chan *SmartbusMessage)
 	rawCh := make(chan []byte)
 	mtx := NewFakeMutex(t)
 	go ReadSmartbus(buf, mtx, ch, rawCh)
@@ -924,7 +940,7 @@ func TestResync(t *testing.T) {
 		0xff, // CRC(lo) - BAD!
 	}, messageTestCases[0].Packet...)
 	r := bytes.NewBuffer(bs)
-	ch := make(chan SmartbusMessage)
+	ch := make(chan *SmartbusMessage)
 	mtx := NewFakeMutex(t)
 	go ReadSmartbus(r, mtx, ch, nil)
 	VerifyReadSingle(t, messageTestCases[0], ch)
@@ -934,7 +950,7 @@ func TestResync(t *testing.T) {
 func TestReadLocking(t *testing.T) {
 	mtc := messageTestCases[0]
 	p, r := io.Pipe()
-	ch := make(chan SmartbusMessage)
+	ch := make(chan *SmartbusMessage)
 	mtx := NewFakeMutex(t)
 	go ReadSmartbus(p, mtx, ch, nil)
 
