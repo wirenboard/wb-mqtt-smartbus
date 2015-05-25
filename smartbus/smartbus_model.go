@@ -150,7 +150,7 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 	smartDev := model.ep.GetSmartbusDevice(header.OrigSubnetID, header.OrigDeviceID)
 	dev = construct(model, smartDev)
 	model.deviceMap[deviceKey] = dev
-	fmt.Printf("NEW DEVICE: %#v (name: %v)\n", dev, dev.Name())
+	wbgo.Debug.Printf("NEW DEVICE: %#v (name: %v)\n", dev, dev.Name())
 	model.Observer.OnNewDevice(dev)
 	return dev
 }
