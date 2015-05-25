@@ -163,7 +163,10 @@ func ReadSmartbusRaw(reader io.Reader, mutex MutexLike, frameHandler func(frame 
 	defer func() {
 		switch {
 		case err == io.EOF || err == io.ErrUnexpectedEOF:
-			wbgo.Error.Printf("eof reached")
+			wbgo.Debug.Printf("eof reached")
+			return
+		case err == io.ErrClosedPipe:
+			wbgo.Debug.Printf("pipe closed")
 			return
 		case err != nil:
 			wbgo.Error.Printf("NOTE: connection error: %s", err)
@@ -172,7 +175,7 @@ func ReadSmartbusRaw(reader io.Reader, mutex MutexLike, frameHandler func(frame 
 	}()
 	for {
 		if err = ReadSync(reader, mutex); err != nil {
-			wbgo.Error.Printf("ReadSync error: %v", err)
+			wbgo.Debug.Printf("ReadSync error: %v", err)
 			// the mutex is not locked if ReadSync failed
 			break
 		}
