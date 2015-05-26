@@ -3,7 +3,7 @@ package smartbus
 import (
 	"errors"
 	"github.com/contactless/wbgo"
-	serial "github.com/ivan4th/goserial"
+	"github.com/goburrow/serial"
 	"io"
 	"net"
 	"strings"
@@ -46,15 +46,16 @@ func createStreamIO(stream io.ReadWriteCloser, provideUdpGateway bool) (Smartbus
 func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 	switch {
 	case strings.HasPrefix(serialAddress, "/"):
-		if serial, err := serial.OpenPort(&serial.Config{
-			Name:   serialAddress,
-			Baud:   9600,
-			Parity: serial.ParityEven,
-			Size:   serial.Byte8,
+		if port, err := serial.Open(&serial.Config{
+			Address:  serialAddress,
+			BaudRate: 9600,
+			DataBits: 8,
+			StopBits: 2,
+			Parity:   "E",
 		}); err != nil {
 			return nil, err
 		} else {
-			return createStreamIO(serial, provideUdpGateway)
+			return createStreamIO(port, provideUdpGateway)
 		}
 	case serialAddress == "udp":
 		if provideUdpGateway {
