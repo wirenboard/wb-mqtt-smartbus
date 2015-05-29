@@ -5,11 +5,38 @@ import (
 	"github.com/contactless/wbgo"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
-	NUM_VIRTUAL_RELAYS = 15
+	// FIXME: make these configurable?
+	NUM_VIRTUAL_RELAYS  = 15
+	REQUEST_QUEUE_SIZE  = 16
+	REQUEST_NUM_RETRIES = 10
+	REQUEST_TIMEOUT     = 1000 * time.Millisecond
 )
+
+type Request struct {
+	name           string
+	expectedOpcode uint16
+	thunk          func()
+}
+
+func newRequest(name string, expectedResponse Message, thunk func()) *Request {
+	return &Request{name, expectedResponse.Opcode(), thunk}
+}
+
+func (request *Request) Run() {
+	request.thunk()
+}
+
+func (request *Request) IsResponse(msg Message) bool {
+	return msg.Opcode() == request.expectedOpcode
+}
+
+func (request *Request) Name() string {
+	return request.name
+}
 
 type Connector func() (SmartbusIO, error)
 
@@ -86,6 +113,7 @@ func NewVirtualRelayDevice() *VirtualRelayDevice {
 
 type SmartbusModel struct {
 	wbgo.ModelBase
+	queue         *MessageQueue
 	connector     Connector
 	deviceMap     map[uint16]RealDeviceModel
 	subnetID      uint8
@@ -94,17 +122,21 @@ type SmartbusModel struct {
 	ep            *SmartbusEndpoint
 	virtualRelays *VirtualRelayDevice
 	broadcastDev  *SmartbusDevice
+	timerFunc     TimerFunc
 }
 
 func NewSmartbusModel(connector Connector, subnetID uint8,
-	deviceID uint8, deviceType uint16) (model *SmartbusModel) {
+	deviceID uint8, deviceType uint16, timerFunc TimerFunc) (model *SmartbusModel) {
 	model = &SmartbusModel{
+		queue: NewMessageQueue(
+			timerFunc, REQUEST_TIMEOUT, REQUEST_NUM_RETRIES, REQUEST_QUEUE_SIZE),
 		connector:     connector,
 		subnetID:      subnetID,
 		deviceID:      deviceID,
 		deviceType:    deviceType,
 		deviceMap:     make(map[uint16]RealDeviceModel),
 		virtualRelays: NewVirtualRelayDevice(),
+		timerFunc:     timerFunc,
 	}
 	return
 }
@@ -123,14 +155,23 @@ func (model *SmartbusModel) Start() error {
 	model.broadcastDev = model.ep.GetBroadcastDevice()
 	model.Observer.OnNewDevice(model.virtualRelays)
 	model.virtualRelays.Publish()
+	model.queue.Start()
 	model.broadcastDev.ReadMACAddress() // discover devices
 	return err
+}
+
+func (model *SmartbusModel) Stop() {
+	model.queue.Stop()
 }
 
 func (model *SmartbusModel) Poll() {
 	for _, dev := range model.deviceMap {
 		dev.Poll()
 	}
+}
+
+func (model *SmartbusModel) enqueueRequest(name string, expectedResponse Message, thunk func()) {
+	model.queue.Enqueue(newRequest(name, expectedResponse, thunk))
 }
 
 func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel {
@@ -226,6 +267,7 @@ func NewZoneBeastDeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) Rea
 func (dm *ZoneBeastDeviceModel) Type() uint16 { return 0x139c }
 
 func (dm *ZoneBeastDeviceModel) Poll() {
+	// no queueing here because polling is periodic
 	dm.smartDev.ReadTemperatureValues(true) // FIXME: Celsius is hardcoded here
 }
 
@@ -240,13 +282,20 @@ func (dm *ZoneBeastDeviceModel) AcceptOnValue(name, value string) bool {
 	if value == "1" {
 		level = LIGHT_LEVEL_ON
 	}
-	dm.smartDev.SingleChannelControl(uint8(channelNo), level, 0)
+
+	dm.model.enqueueRequest(
+		"SingleChannelControl", &SingleChannelControlResponse{},
+		func() {
+			dm.smartDev.SingleChannelControl(uint8(channelNo), level, 0)
+		})
+
 	// No need to echo the value back.
 	// It will be echoed after the device response
 	return false
 }
 
 func (dm *ZoneBeastDeviceModel) OnSingleChannelControlResponse(msg *SingleChannelControlResponse) {
+	dm.model.queue.HandleReceivedMessage(msg)
 	if !msg.Success {
 		wbgo.Error.Printf("ERROR: unsuccessful SingleChannelControlCommand")
 		return
@@ -363,22 +412,35 @@ func (dm *DDPDeviceModel) Poll() {}
 func (dm *DDPDeviceModel) OnReadMACAddressResponse(msg *ReadMACAddressResponse) {
 	// NOTE: something like this can be used for button 'learning':
 	// dm.smartDev.QueryModulesResponse(QUERY_MODULES_DEV_RELAY, 0x08)
-	if dm.isNew {
-		dm.isNew = false
-		dm.smartDev.QueryPanelButtonAssignment(1, 1)
-	}
+	dm.queryButtons()
 }
 
 func (dm *DDPDeviceModel) OnQueryModules(msg *QueryModules) {
 	// for the case when the DDP was plugged in
 	// after driver init
+	dm.queryButtons()
+}
+
+func (dm *DDPDeviceModel) queryButtons() {
 	if dm.isNew {
 		dm.isNew = false
-		dm.smartDev.QueryPanelButtonAssignment(1, 1)
+		dm.queryButton(1)
 	}
 }
 
+func (dm *DDPDeviceModel) queryButton(n uint8) {
+	wbgo.Debug.Printf("queryButton(): %d", n)
+	dm.model.enqueueRequest(
+		"QueryPanelButtonAssignment",
+		&QueryPanelButtonAssignmentResponse{},
+		func() {
+			wbgo.Debug.Printf("queryButton() thunk: %d", n)
+			dm.smartDev.QueryPanelButtonAssignment(n, 1)
+		})
+}
+
 func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelButtonAssignmentResponse) {
+	dm.model.queue.HandleReceivedMessage(msg)
 	// FunctionNo = 1 because we're only querying the first function
 	// in the list currently (multiple functions may be needed for CombinationOn mode etc.)
 	if msg.ButtonNo == 0 || msg.ButtonNo > PANEL_BUTTON_COUNT || msg.FunctionNo != 1 {
@@ -404,27 +466,33 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 
 	// TBD: this is not quite correct, should wait w/timeout etc.
 	if msg.ButtonNo < PANEL_BUTTON_COUNT {
-		dm.smartDev.QueryPanelButtonAssignment(msg.ButtonNo+1, 1)
+		dm.queryButton(msg.ButtonNo + 1)
 	}
 }
 
 func (dm *DDPDeviceModel) OnSetPanelButtonModesResponse(msg *SetPanelButtonModesResponse) {
 	// FIXME
+	dm.model.queue.HandleReceivedMessage(msg)
 	if dm.pendingAssignmentButtonNo <= 0 {
 		wbgo.Error.Printf("SetPanelButtonModesResponse without pending assignment")
 	}
-	dm.smartDev.AssignPanelButton(
-		uint8(dm.pendingAssignmentButtonNo),
-		1,
-		BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
-		dm.model.subnetID,
-		dm.model.deviceID,
-		uint8(dm.pendingAssignment),
-		100,
-		0)
+
+	dm.model.enqueueRequest(
+		"AssignPanelButton", &AssignPanelButtonResponse{}, func() {
+			dm.smartDev.AssignPanelButton(
+				uint8(dm.pendingAssignmentButtonNo),
+				1,
+				BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
+				dm.model.subnetID,
+				dm.model.deviceID,
+				uint8(dm.pendingAssignment),
+				100,
+				0)
+		})
 }
 
 func (dm *DDPDeviceModel) OnAssignPanelButtonResponse(msg *AssignPanelButtonResponse) {
+	dm.model.queue.HandleReceivedMessage(msg)
 	if dm.pendingAssignmentButtonNo >= 0 &&
 		int(msg.ButtonNo) == dm.pendingAssignmentButtonNo &&
 		msg.FunctionNo == 1 {
@@ -434,13 +502,15 @@ func (dm *DDPDeviceModel) OnAssignPanelButtonResponse(msg *AssignPanelButtonResp
 		wbgo.Error.Printf("mismatched AssignPanelButtonResponse: %v/%v (pending %d)",
 			msg.ButtonNo, msg.FunctionNo, dm.pendingAssignmentButtonNo)
 	}
-	// FIXME (retry)
+	// FIXME: reset these upon failed command (all retries failed)
 	dm.pendingAssignmentButtonNo = -1
 	dm.pendingAssignment = -1
 }
 
 func (dm *DDPDeviceModel) OnSingleChannelControlCommand(msg *SingleChannelControlCommand) {
 	dm.model.SetVirtualRelayOn(int(msg.ChannelNo), msg.Level > 0)
+	// Note that we can't guarantee here that the response reaches
+	// the device, but we can't do anything about it here
 	dm.smartDev.SingleChannelControlResponse(msg.ChannelNo, true, msg.Level,
 		dm.model.VirtualRelayStatus())
 }
@@ -494,7 +564,13 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 			modes[i] = "SingleOnOff"
 		}
 	}
-	dm.smartDev.SetPanelButtonModes(modes)
+
+	dm.model.enqueueRequest(
+		"SetPanelButtonModes",
+		&SetPanelButtonModesResponse{},
+		func() {
+			dm.smartDev.SetPanelButtonModes(modes)
+		})
 
 	dm.pendingAssignmentButtonNo = buttonNo
 	dm.pendingAssignment = newAssignment

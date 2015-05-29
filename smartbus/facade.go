@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"time"
 )
 
 // FIXME
@@ -84,7 +85,9 @@ func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 func NewSmartbusTCPDriver(serialAddress, brokerAddress string, provideUdpGateway bool) (*wbgo.Driver, error) {
 	model := NewSmartbusModel(func() (SmartbusIO, error) {
 		return connect(serialAddress, provideUdpGateway)
-	}, DRIVER_SUBNET, DRIVER_DEVICE_ID, DRIVER_DEVICE_TYPE)
+	}, DRIVER_SUBNET, DRIVER_DEVICE_ID, DRIVER_DEVICE_TYPE, func(d time.Duration) wbgo.Timer {
+		return wbgo.NewRealTimer(d)
+	})
 	driver := wbgo.NewDriver(model, wbgo.NewPahoMQTTClient(brokerAddress, DRIVER_CLIENT_ID, false))
 	return driver, nil
 }
