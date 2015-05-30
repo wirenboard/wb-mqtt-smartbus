@@ -66,14 +66,14 @@ func (fixture *smartbusDriverFixture) VerifyVirtualRelays() {
 	expected = append(
 		expected,
 		"driver -> /devices/sbusvrelay/meta/name: [Smartbus Virtual Relays] (QoS 1, retained)")
-	for i := 1; i <= 15; i++ {
+	for i := 1; i <= NUM_VIRTUAL_RELAYS; i++ {
 		path := fmt.Sprintf("/devices/sbusvrelay/controls/VirtualRelay%d", i)
 		expected = append(
 			expected,
-			fmt.Sprintf("driver -> %s/meta/type: [text] (QoS 1, retained)", path),
+			fmt.Sprintf("driver -> %s/meta/type: [switch] (QoS 1, retained)", path),
+			fmt.Sprintf("driver -> %s/meta/readonly: [1] (QoS 1, retained)", path),
 			fmt.Sprintf("driver -> %s/meta/order: [%d] (QoS 1, retained)", path, i),
 			fmt.Sprintf("driver -> %s: [0] (QoS 1, retained)", path),
-			fmt.Sprintf("Subscribe -- driver: %s/on", path),
 		)
 	}
 	fixture.Verify(expected...)

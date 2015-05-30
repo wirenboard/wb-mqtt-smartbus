@@ -66,7 +66,7 @@ func (dm *VirtualRelayDevice) Publish() {
 			v = "1"
 		}
 		controlName := fmt.Sprintf("VirtualRelay%d", i+1)
-		dm.Observer.OnNewControl(dm, controlName, "text", v, false, -1, true)
+		dm.Observer.OnNewControl(dm, controlName, "switch", v, true, -1, true)
 	}
 }
 
