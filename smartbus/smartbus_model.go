@@ -445,6 +445,7 @@ func (dm *DDPDeviceModel) OnQueryPanelButtonAssignmentResponse(msg *QueryPanelBu
 	// in the list currently (multiple functions may be needed for CombinationOn mode etc.)
 	if msg.ButtonNo == 0 || msg.ButtonNo > PANEL_BUTTON_COUNT || msg.FunctionNo != 1 {
 		wbgo.Error.Printf("bad button/fn number: %d/%d", msg.ButtonNo, msg.FunctionNo)
+		return
 	}
 
 	v := -1
@@ -475,6 +476,7 @@ func (dm *DDPDeviceModel) OnSetPanelButtonModesResponse(msg *SetPanelButtonModes
 	dm.model.queue.HandleReceivedMessage(msg)
 	if dm.pendingAssignmentButtonNo <= 0 {
 		wbgo.Error.Printf("SetPanelButtonModesResponse without pending assignment")
+		return
 	}
 
 	dm.model.enqueueRequest(
@@ -501,6 +503,7 @@ func (dm *DDPDeviceModel) OnAssignPanelButtonResponse(msg *AssignPanelButtonResp
 	} else {
 		wbgo.Error.Printf("mismatched AssignPanelButtonResponse: %v/%v (pending %d)",
 			msg.ButtonNo, msg.FunctionNo, dm.pendingAssignmentButtonNo)
+		return
 	}
 	// FIXME: reset these upon failed command (all retries failed)
 	dm.pendingAssignmentButtonNo = -1
@@ -519,6 +522,7 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 	// FIXME
 	if dm.pendingAssignmentButtonNo > 0 {
 		wbgo.Error.Printf("button assignment queueing not implemented yet!")
+		return false
 	}
 
 	s1 := strings.TrimPrefix(name, "Page")
