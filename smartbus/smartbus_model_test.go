@@ -5,6 +5,11 @@ import (
 	"github.com/contactless/wbgo"
 	"net"
 	"testing"
+	"time"
+)
+
+const (
+	REQUEST_TIMEOUT_MS = int(REQUEST_TIMEOUT / time.Millisecond)
 )
 
 type smartbusDriverFixture struct {
@@ -119,7 +124,7 @@ func (fixture *ddpFixture) verifyQueryingButtons(useTimer bool) {
 		fixture.handler.Verify(fmt.Sprintf(
 			"03/fe (type fffe) -> 01/14: <QueryPanelButtonAssignment %d/1>", i))
 		if useTimer {
-			fixture.Verify(fmt.Sprintf("new fake timer: %d, 1000", i))
+			fixture.Verify(fmt.Sprintf("new fake timer: %d, %d", i, REQUEST_TIMEOUT_MS))
 		}
 		assignment := -1
 		if i <= 10 {
@@ -220,7 +225,7 @@ func TestSmartbusDriverDDPCommandQueue(t *testing.T) {
 		"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
 		"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
 		"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
-	fixture.Verify("new fake timer: 1, 1000")
+	fixture.Verify(fmt.Sprintf("new fake timer: 1, %d", REQUEST_TIMEOUT_MS))
 
 	fixture.FireTimer(1, fixture.AdvanceTime(1000))
 	fixture.Verify("timer.fire(): 1")
@@ -230,7 +235,7 @@ func TestSmartbusDriverDDPCommandQueue(t *testing.T) {
 		"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
 		"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
 		"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
-	fixture.Verify("new fake timer: 2, 1000")
+	fixture.Verify(fmt.Sprintf("new fake timer: 2, %d", REQUEST_TIMEOUT_MS))
 	wbgo.EnsureGotWarnings(t)
 
 	fixture.ddpToAppDev.SetPanelButtonModesResponse(true)
@@ -238,7 +243,7 @@ func TestSmartbusDriverDDPCommandQueue(t *testing.T) {
 		"timer.Stop(): 2",
 	)
 	fixture.handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
-	fixture.Verify("new fake timer: 3, 1000")
+	fixture.Verify(fmt.Sprintf("new fake timer: 3, %d", REQUEST_TIMEOUT_MS))
 	fixture.ddpToAppDev.AssignPanelButtonResponse(2, 1)
 	fixture.VerifyUnordered(
 		"timer.Stop(): 3",
@@ -369,7 +374,7 @@ func TestSmartbusDriverZoneBeastCommandQueue(t *testing.T) {
 	fixture.handler.Verify(
 		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
 	fixture.Verify(
-		"new fake timer: 1, 1000",
+		fmt.Sprintf("new fake timer: 1, %d", REQUEST_TIMEOUT_MS),
 	)
 
 	fixture.FireTimer(1, fixture.AdvanceTime(1000)) // oops, timeout!
@@ -377,7 +382,7 @@ func TestSmartbusDriverZoneBeastCommandQueue(t *testing.T) {
 	fixture.handler.Verify(
 		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
 	fixture.Verify(
-		"new fake timer: 2, 1000",
+		fmt.Sprintf("new fake timer: 2, %d", REQUEST_TIMEOUT_MS),
 	)
 	wbgo.EnsureGotWarnings(t)
 

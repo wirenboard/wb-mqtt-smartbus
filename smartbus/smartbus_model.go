@@ -12,8 +12,8 @@ const (
 	// FIXME: make these configurable?
 	NUM_VIRTUAL_RELAYS  = 15
 	REQUEST_QUEUE_SIZE  = 16
-	REQUEST_NUM_RETRIES = 10
-	REQUEST_TIMEOUT     = 1000 * time.Millisecond
+	REQUEST_NUM_RETRIES = 20
+	REQUEST_TIMEOUT     = 500 * time.Millisecond
 )
 
 type Request struct {
