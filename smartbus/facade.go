@@ -3,7 +3,7 @@ package smartbus
 import (
 	"errors"
 	"github.com/contactless/wbgo"
-	"github.com/goburrow/serial"
+	"github.com/ivan4th/serial"
 	"io"
 	"net"
 	"strings"
@@ -17,6 +17,14 @@ const (
 	DRIVER_DEVICE_TYPE = 0x1234
 	DRIVER_CLIENT_ID   = "smartbus"
 )
+
+type serialWrapper struct {
+	serial.Port
+}
+
+func (wrapper *serialWrapper) IsTimeout(err error) bool {
+	return err == serial.ErrTimeout
+}
 
 func createStreamIO(stream io.ReadWriteCloser, provideUdpGateway bool) (SmartbusIO, error) {
 	if !provideUdpGateway {
@@ -53,10 +61,11 @@ func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 			DataBits: 8,
 			StopBits: 2,
 			Parity:   "E",
+			Timeout:  250 * time.Millisecond,
 		}); err != nil {
 			return nil, err
 		} else {
-			return createStreamIO(port, provideUdpGateway)
+			return createStreamIO(&serialWrapper{port}, provideUdpGateway)
 		}
 	case serialAddress == "udp":
 		if provideUdpGateway {

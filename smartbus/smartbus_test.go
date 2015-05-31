@@ -3,6 +3,7 @@ package smartbus
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"github.com/contactless/wbgo"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -1053,11 +1054,84 @@ func TestSmartbusEndpointReceive(t *testing.T) {
 	r.Close()
 }
 
+var fakeTimeout = errors.New("fake timeout")
+
+type fakeTimeoutConnectionWrapper struct {
+	net.Conn
+	trap  chan struct{}
+	bytes chan byte
+	errCh chan error
+}
+
+func newFakeTimeoutConnectionWrapper(conn net.Conn) (wrapper *fakeTimeoutConnectionWrapper) {
+	wrapper = &fakeTimeoutConnectionWrapper{
+		Conn:  conn,
+		trap:  make(chan struct{}, 10),
+		bytes: make(chan byte, 1024),
+		errCh: make(chan error, 1),
+	}
+	go wrapper.readData()
+	return
+}
+
+func (wrapper *fakeTimeoutConnectionWrapper) setTrap() {
+	wrapper.trap <- struct{}{}
+}
+
+func (wrapper *fakeTimeoutConnectionWrapper) readData() {
+	var b [1]byte
+	for {
+		n, err := wrapper.Conn.Read(b[:])
+		if err != nil {
+			wrapper.errCh <- err
+			break
+		}
+		if n > 0 {
+			wrapper.bytes <- b[0]
+		}
+	}
+}
+
+func (wrapper *fakeTimeoutConnectionWrapper) Read(b []byte) (n int, err error) {
+	// Check if zero-length read is requested so that
+	// we don't have to read anything. In this case,
+	// the trap is not invoked
+	if len(b) == 0 {
+		return 0, nil
+	}
+
+	// Read first char, may trap at this point
+	select {
+	case <-wrapper.trap:
+		return 0, fakeTimeout
+	case b[0] = <-wrapper.bytes:
+	}
+
+	// Read remaining available characters
+readLoop:
+	for n = 1; n < len(b); n++ {
+		select {
+		case err = <-wrapper.errCh:
+			break readLoop
+		case b[n] = <-wrapper.bytes:
+		default:
+			break readLoop
+		}
+	}
+
+	return
+}
+
+func (wrapper *fakeTimeoutConnectionWrapper) IsTimeout(err error) bool {
+	return err == fakeTimeout
+}
+
 func TestSmartbusEndpointSendReceive(t *testing.T) {
 	wbgo.SetupTestLogging(t)
 	defer wbgo.EnsureNoErrorsOrWarnings(t)
 
 	p, r := net.Pipe()
+	wrapper := newFakeTimeoutConnectionWrapper(r)
 
 	ddpHandler := NewFakeHandler(t)
 	conn1 := NewSmartbusConnection(NewStreamIO(p, nil))
@@ -1068,7 +1142,7 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 	ddpToAllDev := ddpEp.GetBroadcastDevice()
 
 	relayHandler := NewFakeHandler(t)
-	conn2 := NewSmartbusConnection(NewStreamIO(r, nil))
+	conn2 := NewSmartbusConnection(NewStreamIO(wrapper, nil))
 	relay_ep := conn2.MakeSmartbusEndpoint(SAMPLE_SUBNET, SAMPLE_RELAY_DEVICE_ID, SAMPLE_RELAY_DEVICE_TYPE)
 	relay_ep.Observe(relayHandler)
 	relayToDDPDev := relay_ep.GetSmartbusDevice(SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID)
@@ -1083,6 +1157,14 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 	ddpToRelayDev.ReadTemperatureValues(true)
 	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <ReadTemperatureValues Celsius>")
 
+	relayToDDPDev.ReadTemperatureValuesResponse(true, []int8{22})
+	ddpHandler.Verify("01/1c (type 139c) -> 01/14: <ReadTemperatureValuesResponse Celsius 22>")
+
+	// now make sure the timeout doesn't break anything
+	ddpToRelayDev.ReadTemperatureValues(true)
+	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <ReadTemperatureValues Celsius>")
+	// plant fake timeout on the relay side (read timeout while waiting for the next packet doesn't mean anything)
+	wrapper.setTrap()
 	relayToDDPDev.ReadTemperatureValuesResponse(true, []int8{22})
 	ddpHandler.Verify("01/1c (type 139c) -> 01/14: <ReadTemperatureValuesResponse Celsius 22>")
 

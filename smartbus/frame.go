@@ -40,6 +40,15 @@ type SmartbusMessage struct {
 	Message interface{}
 }
 
+type TimeoutChecker interface {
+	IsTimeout(error) bool
+}
+
+func isTimeout(stream interface{}, err error) bool {
+	checker, ok := stream.(TimeoutChecker)
+	return ok && checker.IsTimeout(err)
+}
+
 func WritePreBuiltFrame(writer io.Writer, frame []byte) {
 	// writing the buffer in parts may cause missed frames
 	bs := make([]byte, len(frame)+2)
@@ -90,6 +99,9 @@ func ReadSync(reader io.Reader, mutex MutexLike) error {
 	var b byte
 	for {
 		if err := binary.Read(reader, binary.BigEndian, &b); err != nil {
+			if isTimeout(reader, err) {
+				continue
+			}
 			return err
 		}
 		if b != 0xaa {
@@ -99,6 +111,10 @@ func ReadSync(reader io.Reader, mutex MutexLike) error {
 
 		mutex.Lock()
 		if err := binary.Read(reader, binary.BigEndian, &b); err != nil {
+			if isTimeout(reader, err) {
+				wbgo.Debug.Printf("sync byte 1 timeout")
+				continue
+			}
 			mutex.Unlock()
 			return err
 		}
@@ -135,6 +151,10 @@ func ParseFrame(frame []byte) (*SmartbusMessage, error) {
 func ReadSmartbusFrame(reader io.Reader) ([]byte, bool) {
 	var l byte
 	if err := binary.Read(reader, binary.BigEndian, &l); err != nil {
+		if isTimeout(reader, err) {
+			wbgo.Error.Printf("timed out reading frame length")
+			return nil, true
+		}
 		wbgo.Error.Printf("error reading frame length: %v", err)
 		return nil, false
 	}
@@ -145,6 +165,10 @@ func ReadSmartbusFrame(reader io.Reader) ([]byte, bool) {
 	var frame []byte = make([]byte, l)
 	frame[0] = l
 	if _, err := io.ReadFull(reader, frame[1:]); err != nil {
+		if isTimeout(reader, err) {
+			wbgo.Error.Printf("timed out reading frame body")
+			return nil, true
+		}
 		wbgo.Error.Printf("error reading frame body (%d bytes): %v", l, err)
 		return nil, false
 	}
@@ -169,7 +193,9 @@ func ReadSmartbusRaw(reader io.Reader, mutex MutexLike, frameHandler func(frame 
 			wbgo.Debug.Printf("pipe closed")
 			return
 		case err != nil:
-			wbgo.Error.Printf("NOTE: connection error: %s", err)
+			if !isTimeout(reader, err) {
+				wbgo.Error.Printf("NOTE: connection error: %s", err)
+			}
 			return
 		}
 	}()
