@@ -1,3 +1,9 @@
+wb-mqtt-smartbus (1.1) wheezy; urgency=low
+
+  * Stability & error handling improvements
+
+ -- Ivan Shvedunov <ivan4th@gmail.com>  Mon, 01 Jun 2015 02:43:00 +0300
+
 wb-mqtt-smartbus (1.0) wheezy; urgency=low
 
   * Initial package version

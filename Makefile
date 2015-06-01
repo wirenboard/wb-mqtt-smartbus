@@ -6,13 +6,15 @@ clean:
 
 prepare:
 	go get -u github.com/mattn/gom
-	$(GOM) install
+	PATH=$(HOME)/progs/go/bin:$(PATH) GOARM=5 GOARCH=arm GOOS=linux \
+	  CC_FOR_TARGET=arm-linux-gnueabi-gcc CGO_ENABLED=1 $(GOM) install
 
 clean:
 	rm -f wb-mqtt-smartbus
 
 wb-mqtt-smartbus: smartbus_driver.go smartbus/*.go
-	GOARM=5 GOARCH=arm GOOS=linux $(GOM) build
+	PATH=$(HOME)/progs/go/bin:$(PATH) GOARM=5 GOARCH=arm GOOS=linux \
+	  CC_FOR_TARGET=arm-linux-gnueabi-gcc CGO_ENABLED=1 $(GOM) build
 
 install:
 	mkdir -p $(DESTDIR)/usr/bin/ $(DESTDIR)/etc/init.d/
