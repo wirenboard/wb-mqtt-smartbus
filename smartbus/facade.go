@@ -3,7 +3,7 @@ package smartbus
 import (
 	"errors"
 	"github.com/contactless/wbgo"
-	"github.com/ivan4th/serial"
+	"github.com/goburrow/serial"
 	"io"
 	"net"
 	"strings"
