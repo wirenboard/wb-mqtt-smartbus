@@ -59,7 +59,7 @@ func (s *SmartbusDriverSuiteBase) TearDownTest() {
 	s.Verify(
 		"stop: driver",
 	)
-	s.Suite.TearDown()
+	s.Suite.TearDownTest()
 }
 
 func (s *SmartbusDriverSuiteBase) VerifyVirtualRelays() {
@@ -385,9 +385,7 @@ func (s *ZoneBeastSuite) TestSmartbusDriverZoneBeastCommandQueue() {
 }
 
 func TestSmartbusDriverSuite(t *testing.T) {
-	wbgo.RunSuite(t, new(DDPSuite))
-	wbgo.RunSuite(t, new(ZoneBeastSuite))
+	wbgo.RunSuites(t, new(DDPSuite), new(ZoneBeastSuite))
 }
 
-// TBD: rm Verify(...) delegation (use direct recorder)
 // TBD: outdated ZoneBeastBroadcast messages still arrive sometimes, need to fix this

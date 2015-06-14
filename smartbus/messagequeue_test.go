@@ -180,5 +180,5 @@ func (s *MessageQueueSuite) TestMessageQueueRestart() {
 }
 
 func TestMessageQueueSuite(t *testing.T) {
-	wbgo.RunSuite(t, new(MessageQueueSuite))
+	wbgo.RunSuites(t, new(MessageQueueSuite))
 }
