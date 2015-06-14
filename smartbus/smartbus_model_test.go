@@ -12,61 +12,57 @@ const (
 	REQUEST_TIMEOUT_MS = int(REQUEST_TIMEOUT / time.Millisecond)
 )
 
-type smartbusDriverFixture struct {
+type SmartbusDriverSuiteBase struct {
+	wbgo.Suite
 	*wbgo.FakeTimerFixture
-	t       *testing.T
+	*wbgo.FakeMQTTFixture
 	client  *wbgo.FakeMQTTClient
-	broker  *wbgo.FakeMQTTBroker
 	driver  *wbgo.Driver
 	model   *SmartbusModel
 	handler *FakeHandler
 	conn    *SmartbusConnection
 }
 
-func newSmartbusDriverFixture(t *testing.T, useTimer bool) *smartbusDriverFixture {
-	wbgo.SetupTestLogging(t)
-
-	p, r := net.Pipe()
-
-	broker := wbgo.NewFakeMQTTBroker(t)
-	var fakeTimerFixture *wbgo.FakeTimerFixture
-	timerFunc := TimerFunc(nil)
-	if useTimer {
-		fakeTimerFixture = wbgo.NewFakeTimerFixture(t, &broker.Recorder)
-		timerFunc = fakeTimerFixture.NewFakeTimer
-	}
-	model := NewSmartbusModel(func() (SmartbusIO, error) {
-		return NewStreamIO(p, nil), nil
-	}, SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID, SAMPLE_APP_DEVICE_TYPE,
-		timerFunc)
-	client := broker.MakeClient("tst")
-	client.Start()
-	driver := wbgo.NewDriver(model, broker.MakeClient("driver"))
-	driver.SetAutoPoll(false)
-
-	handler := NewFakeHandler(t)
-	conn := NewSmartbusConnection(NewStreamIO(r, nil))
-	return &smartbusDriverFixture{fakeTimerFixture, t, client, broker, driver, model, handler, conn}
+func (s *SmartbusDriverSuiteBase) T() *testing.T {
+	return s.Suite.T()
 }
 
-func (fixture *smartbusDriverFixture) tearDown() {
-	fixture.driver.Stop()
-	fixture.conn.Close()
-	fixture.Verify(
+func (s *SmartbusDriverSuiteBase) SetupTest() {
+	s.Suite.SetupTest()
+	s.FakeMQTTFixture = wbgo.NewFakeMQTTFixture(s.T())
+}
+
+func (s *SmartbusDriverSuiteBase) Start(useTimer bool) {
+	var timerFunc TimerFunc = nil
+	if useTimer {
+		s.FakeTimerFixture = wbgo.NewFakeTimerFixture(s.T(), s.Broker.Recorder) // FIXME
+		timerFunc = s.NewFakeTimer
+	} else {
+		s.FakeTimerFixture = nil
+	}
+	p, r := net.Pipe()
+	s.model = NewSmartbusModel(func() (SmartbusIO, error) {
+		return NewStreamIO(p, nil), nil
+	}, SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID, SAMPLE_APP_DEVICE_TYPE, timerFunc)
+	s.client = s.Broker.MakeClient("tst")
+	s.client.Start()
+	s.driver = wbgo.NewDriver(s.model, s.Broker.MakeClient("driver"))
+	s.driver.SetAutoPoll(false)
+
+	s.handler = NewFakeHandler(s.T())
+	s.conn = NewSmartbusConnection(NewStreamIO(r, nil))
+}
+
+func (s *SmartbusDriverSuiteBase) TearDownTest() {
+	s.driver.Stop()
+	s.conn.Close()
+	s.Verify(
 		"stop: driver",
 	)
-	wbgo.EnsureNoErrorsOrWarnings(fixture.t)
+	s.Suite.TearDown()
 }
 
-func (fixture *smartbusDriverFixture) Verify(expected ...string) {
-	fixture.broker.Verify(expected...)
-}
-
-func (fixture *smartbusDriverFixture) VerifyUnordered(expected ...string) {
-	fixture.broker.VerifyUnordered(expected...)
-}
-
-func (fixture *smartbusDriverFixture) VerifyVirtualRelays() {
+func (s *SmartbusDriverSuiteBase) VerifyVirtualRelays() {
 	expected := make([]string, 0, 100)
 	expected = append(
 		expected,
@@ -81,33 +77,31 @@ func (fixture *smartbusDriverFixture) VerifyVirtualRelays() {
 			fmt.Sprintf("driver -> %s: [0] (QoS 1, retained)", path),
 		)
 	}
-	fixture.Verify(expected...)
+	s.Verify(expected...)
 }
 
-type ddpFixture struct {
-	*smartbusDriverFixture
+type DDPSuite struct {
+	SmartbusDriverSuiteBase
 	ddpEp       *SmartbusEndpoint
 	ddpToAppDev *SmartbusDevice
 }
 
-func newDDPFixture(t *testing.T, useTimer bool) (fixture *ddpFixture) {
-	fixture = &ddpFixture{smartbusDriverFixture: newSmartbusDriverFixture(t, useTimer)}
-	fixture.ddpEp = fixture.conn.MakeSmartbusEndpoint(
+func (s *DDPSuite) Start(useTimer bool) {
+	s.SmartbusDriverSuiteBase.Start(useTimer)
+	s.ddpEp = s.conn.MakeSmartbusEndpoint(
 		SAMPLE_SUBNET, SAMPLE_DDP_DEVICE_ID, SAMPLE_DDP_DEVICE_TYPE)
-	fixture.ddpEp.Observe(fixture.handler)
-	fixture.ddpToAppDev = fixture.ddpEp.GetSmartbusDevice(SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
+	s.ddpEp.Observe(s.handler)
+	s.ddpToAppDev = s.ddpEp.GetSmartbusDevice(SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
 
-	fixture.driver.Start()
-	fixture.VerifyVirtualRelays()
-	fixture.detectIt()
-	fixture.verifyQueryingButtons(useTimer)
-	// TBD: reset timer index
-	return
+	s.driver.Start()
+	s.VerifyVirtualRelays()
+	s.detectIt()
+	s.verifyQueryingButtons(useTimer)
 }
 
-func (fixture *ddpFixture) detectIt() {
-	fixture.handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
-	fixture.ddpToAppDev.ReadMACAddressResponse(
+func (s *DDPSuite) detectIt() {
+	s.handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
+	s.ddpToAppDev.ReadMACAddressResponse(
 		[8]byte{
 			0x53, 0x03, 0x00, 0x00,
 			0x00, 0x00, 0x30, 0xc3,
@@ -115,24 +109,24 @@ func (fixture *ddpFixture) detectIt() {
 		[]uint8{
 			0x20, 0x42, 0x42,
 		})
-	fixture.Verify(
+	s.Verify(
 		"driver -> /devices/ddp0114/meta/name: [DDP 01:14] (QoS 1, retained)")
 }
 
-func (fixture *ddpFixture) verifyQueryingButtons(useTimer bool) {
+func (s *DDPSuite) verifyQueryingButtons(useTimer bool) {
 	for i := 1; i <= PANEL_BUTTON_COUNT; i++ {
-		fixture.handler.Verify(fmt.Sprintf(
+		s.handler.Verify(fmt.Sprintf(
 			"03/fe (type fffe) -> 01/14: <QueryPanelButtonAssignment %d/1>", i))
 		if useTimer {
-			fixture.Verify(fmt.Sprintf("new fake timer: %d, %d", i, REQUEST_TIMEOUT_MS))
+			s.Verify(fmt.Sprintf("new fake timer: %d, %d", i, REQUEST_TIMEOUT_MS))
 		}
 		assignment := -1
 		if i <= 10 {
-			fixture.ddpToAppDev.QueryPanelButtonAssignmentResponse(
+			s.ddpToAppDev.QueryPanelButtonAssignmentResponse(
 				uint8(i), 1, BUTTON_COMMAND_INVALID, 0, 0, 0, 0, 0)
 		} else {
 			assignment = i - 10
-			fixture.ddpToAppDev.QueryPanelButtonAssignmentResponse(
+			s.ddpToAppDev.QueryPanelButtonAssignmentResponse(
 				uint8(i), 1, BUTTON_COMMAND_SINGLE_CHANNEL_LIGHTING_CONTROL,
 				SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID,
 				uint8(assignment), 100, 0)
@@ -149,147 +143,145 @@ func (fixture *ddpFixture) verifyQueryingButtons(useTimer bool) {
 			items := append([]string{
 				fmt.Sprintf("timer.Stop(): %d", i),
 			}, items...)
-			fixture.VerifyUnordered(items...)
+			s.VerifyUnordered(items...)
 		} else {
-			fixture.Verify(items...)
+			s.Verify(items...)
 		}
 	}
-	if fixture.FakeTimerFixture != nil {
-		fixture.ResetTimerIndex()
+	if useTimer {
+		s.ResetTimerIndex()
 	}
 }
 
-func TestSmartbusDriverDDPHandling(t *testing.T) {
-	fixture := newDDPFixture(t, false)
-	defer fixture.tearDown()
+func (s *DDPSuite) TestSmartbusDriverDDPHandling() {
+	s.Start(false)
 
 	// second QueryModules shouldn't cause anything
-	fixture.ddpToAppDev.QueryModules()
-	fixture.handler.Verify()
-	fixture.Verify()
+	s.ddpToAppDev.QueryModules()
+	s.handler.Verify()
+	s.Verify()
 
-	fixture.client.Publish(
+	s.client.Publish(
 		wbgo.MQTTMessage{"/devices/ddp0114/controls/Page1Button2/on", "10", 1, false})
 
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SetPanelButtonModes " +
 		"1/1:Invalid,1/2:SingleOnOff,1/3:Invalid,1/4:Invalid," +
 		"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
 		"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
 		"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
-	fixture.ddpToAppDev.SetPanelButtonModesResponse(true)
-	fixture.Verify("tst -> /devices/ddp0114/controls/Page1Button2/on: [10] (QoS 1)")
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
-	fixture.ddpToAppDev.AssignPanelButtonResponse(2, 1)
-	fixture.Verify("driver -> /devices/ddp0114/controls/Page1Button2: [10] (QoS 1, retained)")
+	s.ddpToAppDev.SetPanelButtonModesResponse(true)
+	s.Verify("tst -> /devices/ddp0114/controls/Page1Button2/on: [10] (QoS 1)")
+	s.handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
+	s.ddpToAppDev.AssignPanelButtonResponse(2, 1)
+	s.Verify("driver -> /devices/ddp0114/controls/Page1Button2: [10] (QoS 1, retained)")
 
-	fixture.ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_ON, 0)
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_ON, 0)
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SingleChannelControlResponse 10/true/100/" +
 		"---------x----->")
-	fixture.Verify(
+	s.Verify(
 		"driver -> /devices/sbusvrelay/controls/VirtualRelay10: [1] (QoS 1, retained)")
 
-	fixture.ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_ON, 0)
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_ON, 0)
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SingleChannelControlResponse 12/true/100/" +
 		"---------x-x--->")
-	fixture.Verify(
+	s.Verify(
 		"driver -> /devices/sbusvrelay/controls/VirtualRelay12: [1] (QoS 1, retained)")
 
-	fixture.ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_OFF, 0)
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.ddpToAppDev.SingleChannelControl(12, LIGHT_LEVEL_OFF, 0)
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SingleChannelControlResponse 12/true/0/" +
 		"---------x----->")
-	fixture.Verify(
+	s.Verify(
 		"driver -> /devices/sbusvrelay/controls/VirtualRelay12: [0] (QoS 1, retained)")
 
-	fixture.ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_OFF, 0)
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.ddpToAppDev.SingleChannelControl(10, LIGHT_LEVEL_OFF, 0)
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SingleChannelControlResponse 10/true/0/" +
 		"--------------->")
-	fixture.broker.Verify(
+	s.Verify(
 		"driver -> /devices/sbusvrelay/controls/VirtualRelay10: [0] (QoS 1, retained)")
 }
 
-func TestSmartbusDriverDDPCommandQueue(t *testing.T) {
-	fixture := newDDPFixture(t, true)
-	defer fixture.tearDown()
+func (s *DDPSuite) TestSmartbusDriverDDPCommandQueue() {
+	s.Start(true)
 
-	fixture.client.Publish(
+	s.client.Publish(
 		wbgo.MQTTMessage{"/devices/ddp0114/controls/Page1Button2/on", "10", 1, false})
-	fixture.Verify("tst -> /devices/ddp0114/controls/Page1Button2/on: [10] (QoS 1)")
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.Verify("tst -> /devices/ddp0114/controls/Page1Button2/on: [10] (QoS 1)")
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SetPanelButtonModes " +
 		"1/1:Invalid,1/2:SingleOnOff,1/3:Invalid,1/4:Invalid," +
 		"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
 		"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
 		"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
-	fixture.Verify(fmt.Sprintf("new fake timer: 1, %d", REQUEST_TIMEOUT_MS))
+	s.Verify(fmt.Sprintf("new fake timer: 1, %d", REQUEST_TIMEOUT_MS))
 
-	fixture.FireTimer(1, fixture.AdvanceTime(1000))
-	fixture.Verify("timer.fire(): 1")
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: " +
+	s.FireTimer(1, s.AdvanceTime(1000))
+	s.Verify("timer.fire(): 1")
+	s.handler.Verify("03/fe (type fffe) -> 01/14: " +
 		"<SetPanelButtonModes " +
 		"1/1:Invalid,1/2:SingleOnOff,1/3:Invalid,1/4:Invalid," +
 		"2/1:Invalid,2/2:Invalid,2/3:Invalid,2/4:Invalid," +
 		"3/1:Invalid,3/2:Invalid,3/3:SingleOnOff,3/4:SingleOnOff," +
 		"4/1:SingleOnOff,4/2:SingleOnOff,4/3:SingleOnOff,4/4:SingleOnOff>")
-	fixture.Verify(fmt.Sprintf("new fake timer: 2, %d", REQUEST_TIMEOUT_MS))
-	wbgo.EnsureGotWarnings(t)
+	s.Verify(fmt.Sprintf("new fake timer: 2, %d", REQUEST_TIMEOUT_MS))
+	s.EnsureGotWarnings()
 
-	fixture.ddpToAppDev.SetPanelButtonModesResponse(true)
-	fixture.Verify(
+	s.ddpToAppDev.SetPanelButtonModesResponse(true)
+	s.Verify(
 		"timer.Stop(): 2",
 	)
-	fixture.handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
-	fixture.Verify(fmt.Sprintf("new fake timer: 3, %d", REQUEST_TIMEOUT_MS))
-	fixture.ddpToAppDev.AssignPanelButtonResponse(2, 1)
-	fixture.VerifyUnordered(
+	s.handler.Verify("03/fe (type fffe) -> 01/14: <AssignPanelButton 2/1/59/03/fe/10/100/0/0>")
+	s.Verify(fmt.Sprintf("new fake timer: 3, %d", REQUEST_TIMEOUT_MS))
+	s.ddpToAppDev.AssignPanelButtonResponse(2, 1)
+	s.VerifyUnordered(
 		"timer.Stop(): 3",
 		"driver -> /devices/ddp0114/controls/Page1Button2: [10] (QoS 1, retained)")
 }
 
-type zoneBeastFixture struct {
-	*smartbusDriverFixture
+type ZoneBeastSuite struct {
+	SmartbusDriverSuiteBase
 	relayEp       *SmartbusEndpoint
 	relayToAllDev *SmartbusDevice
 	relayToAppDev *SmartbusDevice
 }
 
-func newZoneBeastFixture(t *testing.T, useTimer bool) (fixture *zoneBeastFixture) {
-	fixture = &zoneBeastFixture{smartbusDriverFixture: newSmartbusDriverFixture(t, useTimer)}
+func (s *ZoneBeastSuite) Start(useTimer bool) {
+	s.SmartbusDriverSuiteBase.Start(useTimer)
 
-	fixture.relayEp = fixture.conn.MakeSmartbusEndpoint(
+	s.relayEp = s.conn.MakeSmartbusEndpoint(
 		SAMPLE_SUBNET, SAMPLE_RELAY_DEVICE_ID, SAMPLE_RELAY_DEVICE_TYPE)
-	fixture.relayEp.Observe(fixture.handler)
-	fixture.relayToAllDev = fixture.relayEp.GetBroadcastDevice()
-	fixture.relayToAppDev = fixture.relayEp.GetSmartbusDevice(
+	s.relayEp.Observe(s.handler)
+	s.relayToAllDev = s.relayEp.GetBroadcastDevice()
+	s.relayToAppDev = s.relayEp.GetSmartbusDevice(
 		SAMPLE_APP_SUBNET, SAMPLE_APP_DEVICE_ID)
 
-	fixture.driver.Start()
-	fixture.VerifyVirtualRelays()
-	fixture.detectIt()
-	fixture.firstBroadcast()
+	s.driver.Start()
+	s.VerifyVirtualRelays()
+	s.detectIt()
+	s.firstBroadcast()
 	return
 }
 
-func (fixture *zoneBeastFixture) detectIt() {
-	fixture.handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
-	fixture.relayToAppDev.ReadMACAddressResponse(
+func (s *ZoneBeastSuite) detectIt() {
+	s.handler.Verify("03/fe (type fffe) -> ff/ff: <ReadMACAddress>")
+	s.relayToAppDev.ReadMACAddressResponse(
 		[8]byte{
 			0x53, 0x03, 0x00, 0x00,
 			0x00, 0x00, 0x42, 0x42,
 		},
 		[]uint8{})
-	fixture.Verify(
+	s.Verify(
 		"driver -> /devices/zonebeast011c/meta/name: [Zone Beast 01:1c] (QoS 1, retained)",
 	)
 }
 
-func (fixture *zoneBeastFixture) firstBroadcast() {
-	fixture.relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("---x"))
-	fixture.Verify(
+func (s *ZoneBeastSuite) firstBroadcast() {
+	s.relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("---x"))
+	s.Verify(
 		"driver -> /devices/zonebeast011c/controls/Channel 1/meta/type: [switch] (QoS 1, retained)",
 		"driver -> /devices/zonebeast011c/controls/Channel 1/meta/order: [1] (QoS 1, retained)",
 		"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
@@ -312,86 +304,90 @@ func (fixture *zoneBeastFixture) firstBroadcast() {
 	)
 }
 
-func TestSmartbusDriverZoneBeastHandling(t *testing.T) {
-	fixture := newZoneBeastFixture(t, false)
-	defer fixture.tearDown()
+func (s *ZoneBeastSuite) TestSmartbusDriverZoneBeastHandling() {
+	s.Start(false)
 
-	fixture.relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---"))
-	fixture.Verify(
+	s.relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---"))
+	s.Verify(
 		"driver -> /devices/zonebeast011c/controls/Channel 1: [1] (QoS 1, retained)",
 		"driver -> /devices/zonebeast011c/controls/Channel 4: [0] (QoS 1, retained)",
 	)
 
-	fixture.client.Publish(
+	s.client.Publish(
 		wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 2/on", "1", 1, false})
 	// note that SingleChannelControlResponse carries pre-command channel status
-	fixture.handler.Verify(
+	s.handler.Verify(
 		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
-	fixture.relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
-	fixture.Verify(
+	s.relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
+	s.Verify(
 		"tst -> /devices/zonebeast011c/controls/Channel 2/on: [1] (QoS 1)",
 		"driver -> /devices/zonebeast011c/controls/Channel 2: [1] (QoS 1, retained)",
 	)
 
-	fixture.client.Publish(
+	s.client.Publish(
 		wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 1/on", "0", 1, false})
-	fixture.handler.Verify(
+	s.handler.Verify(
 		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 1/0/0>")
-	fixture.relayToAllDev.SingleChannelControlResponse(1, true, LIGHT_LEVEL_OFF, parseChannelStatus("xx--"))
-	fixture.relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---")) // outdated response -- must be ignored
-	fixture.Verify(
+	s.relayToAllDev.SingleChannelControlResponse(1, true, LIGHT_LEVEL_OFF, parseChannelStatus("xx--"))
+	s.relayToAllDev.ZoneBeastBroadcast([]byte{0}, parseChannelStatus("x---")) // outdated response -- must be ignored
+	s.Verify(
 		"tst -> /devices/zonebeast011c/controls/Channel 1/on: [0] (QoS 1)",
 		"driver -> /devices/zonebeast011c/controls/Channel 1: [0] (QoS 1, retained)",
 	)
 
-	fixture.driver.Poll()
-	fixture.handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
-	fixture.relayToAllDev.ReadTemperatureValuesResponse(true, []int8{22})
-	fixture.Verify(
+	s.driver.Poll()
+	s.handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
+	s.relayToAllDev.ReadTemperatureValuesResponse(true, []int8{22})
+	s.Verify(
 		"driver -> /devices/zonebeast011c/controls/Temp 1/meta/type: [temperature] (QoS 1, retained)",
 		"driver -> /devices/zonebeast011c/controls/Temp 1/meta/readonly: [1] (QoS 1, retained)",
 		"driver -> /devices/zonebeast011c/controls/Temp 1/meta/order: [5] (QoS 1, retained)",
 		"driver -> /devices/zonebeast011c/controls/Temp 1: [22] (QoS 1, retained)",
 	)
 
-	fixture.driver.Poll()
-	fixture.handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
-	fixture.relayToAllDev.ReadTemperatureValuesResponse(true, []int8{-2})
-	fixture.Verify(
+	s.driver.Poll()
+	s.handler.Verify("03/fe (type fffe) -> 01/1c: <ReadTemperatureValues Celsius>")
+	s.relayToAllDev.ReadTemperatureValuesResponse(true, []int8{-2})
+	s.Verify(
 		"driver -> /devices/zonebeast011c/controls/Temp 1: [-2] (QoS 1, retained)",
 	)
 }
 
-func TestSmartbusDriverZoneBeastCommandQueue(t *testing.T) {
-	fixture := newZoneBeastFixture(t, true)
-	defer fixture.tearDown()
+func (s *ZoneBeastSuite) TestSmartbusDriverZoneBeastCommandQueue() {
+	s.Start(true)
 
-	fixture.client.Publish(
+	s.client.Publish(
 		wbgo.MQTTMessage{"/devices/zonebeast011c/controls/Channel 2/on", "1", 1, false})
-	fixture.Verify(
+	s.Verify(
 		"tst -> /devices/zonebeast011c/controls/Channel 2/on: [1] (QoS 1)",
 	)
-	fixture.handler.Verify(
+	s.handler.Verify(
 		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
-	fixture.Verify(
+	s.Verify(
 		fmt.Sprintf("new fake timer: 1, %d", REQUEST_TIMEOUT_MS),
 	)
 
-	fixture.FireTimer(1, fixture.AdvanceTime(1000)) // oops, timeout!
-	fixture.Verify("timer.fire(): 1")
-	fixture.handler.Verify(
+	s.FireTimer(1, s.AdvanceTime(1000)) // oops, timeout!
+	s.Verify("timer.fire(): 1")
+	s.handler.Verify(
 		"03/fe (type fffe) -> 01/1c: <SingleChannelControlCommand 2/100/0>")
-	fixture.Verify(
+	s.Verify(
 		fmt.Sprintf("new fake timer: 2, %d", REQUEST_TIMEOUT_MS),
 	)
-	wbgo.EnsureGotWarnings(t)
+	s.EnsureGotWarnings()
 
 	// note that SingleChannelControlResponse carries pre-command channel status
-	fixture.relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
-	fixture.VerifyUnordered(
+	s.relayToAllDev.SingleChannelControlResponse(2, true, LIGHT_LEVEL_ON, parseChannelStatus("x---"))
+	s.VerifyUnordered(
 		"timer.Stop(): 2",
 		"driver -> /devices/zonebeast011c/controls/Channel 2: [1] (QoS 1, retained)",
 	)
 }
 
+func TestSmartbusDriverSuite(t *testing.T) {
+	wbgo.RunSuite(t, new(DDPSuite))
+	wbgo.RunSuite(t, new(ZoneBeastSuite))
+}
+
+// TBD: rm Verify(...) delegation (use direct recorder)
 // TBD: outdated ZoneBeastBroadcast messages still arrive sometimes, need to fix this

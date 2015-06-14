@@ -141,6 +141,10 @@ func NewSmartbusModel(connector Connector, subnetID uint8,
 	return
 }
 
+func (model *SmartbusModel) SetTimerFunc(timerFunc TimerFunc) {
+	model.timerFunc = timerFunc
+}
+
 func (model *SmartbusModel) Start() error {
 	smartbusIO, err := model.connector()
 	if err != nil {

@@ -997,13 +997,12 @@ func parseChannelStatus(statusStr string) (status []bool) {
 }
 
 type FakeHandler struct {
-	wbgo.Recorder
+	*wbgo.Recorder
 	MessageFormatter
 }
 
 func NewFakeHandler(t *testing.T) (handler *FakeHandler) {
-	handler = &FakeHandler{}
-	handler.InitRecorder(t)
+	handler = &FakeHandler{Recorder: wbgo.NewRecorder(t)}
 	handler.AddMessage = func(format string, args ...interface{}) {
 		handler.Rec(format, args...)
 	}
