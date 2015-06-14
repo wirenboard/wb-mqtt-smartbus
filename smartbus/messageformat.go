@@ -352,7 +352,14 @@ func MakePreprocessedPacketParser(construct func() Message) PacketParser {
 
 var recognizedMessages map[uint16]PacketParser = make(map[uint16]PacketParser)
 
-func RegisterMessage(construct func() Message) {
+func RegisterMessage(messagePtr interface{}) {
+	messageType := reflect.TypeOf(messagePtr)
+	for messageType.Kind() == reflect.Ptr {
+		messageType = messageType.Elem()
+	}
+	construct := func() Message {
+		return reflect.New(messageType).Interface().(Message)
+	}
 	msg := construct()
 	var parser PacketParser
 	switch msg.(type) {
