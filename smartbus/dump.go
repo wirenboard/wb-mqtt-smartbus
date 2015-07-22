@@ -226,7 +226,7 @@ func (f *MessageFormatter) OnReadSensorStatusResponse(msg *ReadSensorStatusRespo
 }
 
 func (f *MessageFormatter) OnSensorStatusBroadcast(msg *SensorStatusBroadcast, hdr *MessageHeader) {
-	f.log(hdr, "<SensorStatusBroadcast%d/%d/%v/%v/%v>",
+	f.log(hdr, "<SensorStatusBroadcast %d/%d/%v/%v/%v>",
 		msg.Temperature, msg.Illuminance, msg.Movement,
 		msg.DryContact1, msg.DryContact2)
 }
