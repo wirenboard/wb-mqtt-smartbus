@@ -59,9 +59,30 @@ func (*SingleChannelControlResponse) Opcode() uint16 { return 0x0032 }
 
 // ------
 
+// SceneControl queries device status
+type SceneControl struct {
+	ZoneNo  uint8
+	SceneNo uint8
+}
+
+func (*SceneControl) Opcode() uint16 { return 0x0002 }
+
+// ------
+
+// SceneControlResponse is a response for SceneControl packet
+type SceneControlResponse struct {
+	ZoneNo        uint8
+	SceneNo       uint8
+	ChannelStatus []bool `sbus:"channelStatus"`
+}
+
+func (*SceneControlResponse) Opcode() uint16 { return 0x0003 }
+
+// ------
+
 // ZoneBeastBroadcast packets are sent by ZoneBeast at regular intervals
 type ZoneBeastBroadcast struct {
-	ZoneStatus    []uint8 `sbus:"zoneStatus"`
+	ZoneStatus    []uint8 `sbus:"statusBytes"`
 	ChannelStatus []bool  `sbus:"channelStatus"`
 }
 
@@ -163,12 +184,22 @@ func (*PanelControlResponse) Opcode() uint16 { return 0xe3d9 }
 
 // ------
 
-// QueryFanController is sent by the panel to fan controller devices
-type QueryFanController struct {
+// QueryChannelStatuses is sent by the panel to fan controller devices
+type QueryChannelStatuses struct {
 	Index uint8 // spec says there's no such field, but it's present
+	// (perhaps not required by the device)
 }
 
-func (*QueryFanController) Opcode() uint16 { return 0x0033 }
+func (*QueryChannelStatuses) Opcode() uint16 { return 0x0033 }
+
+// ------
+
+// QueryChannelStatuses is sent by the panel to fan controller devices
+type QueryChannelStatusesResponse struct {
+	ChannelStatus []uint8 `sbus:"statusBytes"`
+}
+
+func (*QueryChannelStatusesResponse) Opcode() uint16 { return 0x0034 }
 
 // ------
 
@@ -270,11 +301,14 @@ func (*ReadTemperatureValuesResponse) Opcode() uint16 { return 0xe3e8 }
 func init() {
 	RegisterMessage(new(*SingleChannelControlCommand))
 	RegisterMessage(new(*SingleChannelControlResponse))
+	RegisterMessage(new(*SceneControl))
+	RegisterMessage(new(*SceneControlResponse))
 	RegisterMessage(new(*ZoneBeastBroadcast))
 	RegisterMessage(new(*QueryModules))
 	RegisterMessage(new(*QueryModulesResponse))
 	RegisterMessage(new(*PanelControlResponse))
-	RegisterMessage(new(*QueryFanController))
+	RegisterMessage(new(*QueryChannelStatuses))
+	RegisterMessage(new(*QueryChannelStatusesResponse))
 	RegisterMessage(new(*QueryPanelButtonAssignment))
 	RegisterMessage(new(*QueryPanelButtonAssignmentResponse))
 	RegisterMessage(new(*AssignPanelButton))

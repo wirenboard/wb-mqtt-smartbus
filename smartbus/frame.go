@@ -175,7 +175,7 @@ func ReadSmartbusFrame(reader io.Reader) ([]byte, bool) {
 
 	crc := crc16(frame[:len(frame)-2])
 	if crc != binary.BigEndian.Uint16(frame[len(frame)-2:]) {
-		wbgo.Error.Printf("bad crc")
+		wbgo.Error.Printf("bad crc (expected: 0x%02x)", crc)
 		return nil, true
 	}
 

@@ -586,7 +586,34 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 	return false
 }
 
+type Hmix12DeviceModel struct {
+	*ZoneBeastDeviceModel
+}
+
+func NewHmix12DeviceModel(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel {
+	return &Hmix12DeviceModel{
+		NewZoneBeastDeviceModel(model, smartDev).(*ZoneBeastDeviceModel),
+	}
+}
+
+func (hm *Hmix12DeviceModel) Type() uint16 { return 0x0257 }
+
+func (hm *Hmix12DeviceModel) Poll() {
+	// No queueing here because polling is periodic.
+	hm.smartDev.QueryChannelStatuses(0)
+}
+
+// TBD: tes
+func (hm *Hmix12DeviceModel) OnQueryChannelStatusesResponse(msg *QueryChannelStatusesResponse) {
+	shortStatus := make([]bool, len(msg.ChannelStatus))
+	for n, v := range msg.ChannelStatus {
+		shortStatus[n] = v > 0
+	}
+	hm.updateChannelStatus(shortStatus)
+}
+
 func init() {
 	RegisterDeviceModelType(NewZoneBeastDeviceModel)
 	RegisterDeviceModelType(NewDDPDeviceModel)
+	RegisterDeviceModelType(NewHmix12DeviceModel)
 }

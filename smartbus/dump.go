@@ -60,6 +60,21 @@ func (f *MessageFormatter) OnZoneBeastBroadcast(msg *ZoneBeastBroadcast,
 		formatChannelStatus(msg.ChannelStatus))
 }
 
+func (f *MessageFormatter) OnSceneControl(msg *SceneControl, hdr *MessageHeader) {
+	f.log(hdr,
+		"<SceneControl %02x/%02x>",
+		msg.ZoneNo,
+		msg.SceneNo)
+}
+
+func (f *MessageFormatter) OnSceneControlResponse(msg *SceneControlResponse, hdr *MessageHeader) {
+	f.log(hdr,
+		"<SceneControlResponse %02x/%02x/%s>",
+		msg.ZoneNo,
+		msg.SceneNo,
+		formatChannelStatus(msg.ChannelStatus))
+}
+
 func (f *MessageFormatter) OnQueryModules(msg *QueryModules, hdr *MessageHeader) {
 	f.log(hdr, "<QueryModules>")
 }
@@ -97,9 +112,14 @@ func (f *MessageFormatter) OnPanelControlResponse(msg *PanelControlResponse,
 	f.log(hdr, "<PanelControlResponse %s=%v>", typeName, msg.Value)
 }
 
-func (f *MessageFormatter) OnQueryFanController(msg *QueryFanController,
+func (f *MessageFormatter) OnQueryChannelStatuses(msg *QueryChannelStatuses,
 	hdr *MessageHeader) {
-	f.log(hdr, "<QueryFanController %d>", msg.Index)
+	f.log(hdr, "<QueryChannelStatuses %d>", msg.Index)
+}
+
+func (f *MessageFormatter) OnQueryChannelStatusesResponse(msg *QueryChannelStatusesResponse,
+	hdr *MessageHeader) {
+	f.log(hdr, "<QueryChannelStatusesResponse %v>", msg.ChannelStatus)
 }
 
 func (f *MessageFormatter) OnQueryPanelButtonAssignment(msg *QueryPanelButtonAssignment,

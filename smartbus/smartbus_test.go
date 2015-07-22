@@ -115,6 +115,118 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 		},
 	},
 	{
+		Name:   "SingleChannelControlResponse",
+		Opcode: 0x0032,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   1,
+				OrigDeviceID:   7,
+				OrigDeviceType: 0x257,
+				TargetSubnetID: BROADCAST_SUBNET,
+				TargetDeviceID: BROADCAST_DEVICE,
+			},
+			&SingleChannelControlResponse{
+				ChannelNo:     1,
+				Success:       true,
+				Level:         100,
+				ChannelStatus: []bool{},
+			},
+		},
+		Packet: []uint8{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x0e, // Len
+			0x01, // OrigSubnetID
+			0x07, // OrigDeviceID
+			0x02, // OrigDeviceType(hi)
+			0x57, // OrigDeviceType(lo)
+			0x00, // Opcode(hi)
+			0x32, // Opcode(lo)
+			0xff, // TargetSubnetID
+			0xff, // TargetDeviceID
+			0x01, // [data] LightChannelNo
+			0xf8, // [data] Flag (0xf8=ok, 0xf5=fail)
+			0x64, // [data] Level (0=Off, 100=On)
+			0x2a, // CRC(hi)
+			0x84, // CRC(lo)
+		},
+	},
+	{
+		Name:   "SceneControl",
+		Opcode: 0x0002,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
+				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
+				TargetSubnetID: 0x01,
+				TargetDeviceID: 0x07,
+			},
+			&SceneControl{
+				ZoneNo:  1,
+				SceneNo: 0,
+			},
+		},
+		Packet: []byte{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x0d, // Len
+			0x01, // OrigSubnetID
+			0x14, // OrigDeviceID
+			0x00, // OrigDeviceType(hi)
+			0x95, // OrigDeviceType(lo)
+			0x00, // Opcode(hi)
+			0x02, // Opcode(lo)
+			0x01, // TargetSubnetID
+			0x07, // TargetDeviceID
+			0x01, // [data] ZoneNo
+			0x00, // [data] SceneNo
+			0xea, // CRC(hi)
+			0x67, // CRC(lo)
+		},
+	},
+	{
+		Name:   "SceneControlResponse",
+		Opcode: 0x0003,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   1,
+				OrigDeviceID:   7,
+				OrigDeviceType: 0x257,
+				TargetSubnetID: BROADCAST_SUBNET,
+				TargetDeviceID: BROADCAST_DEVICE,
+			},
+			&SceneControlResponse{
+				ZoneNo:  1,
+				SceneNo: 0,
+				ChannelStatus: []bool{
+					false, false, false, false, false, false, false, false,
+					false, false, false, false,
+				},
+			},
+		},
+		Packet: []byte{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x10, // Len
+			0x01, // OrigSubnetID
+			0x07, // OrigDeviceID
+			0x02, // OrigDeviceType(hi)
+			0x57, // OrigDeviceType(lo)
+			0x00, // Opcode(hi)
+			0x03, // Opcode(lo)
+			0xff, // TargetSubnetID
+			0xff, // TargetDeviceID
+			0x01, // [data] ZoneNo
+			0x00, // [data] SceneNo
+			0x0c, // [data] NumberOfChannels
+			0x00, // [data] <channel data>
+			0x00, // [data] <channel data>
+			0x37, // CRC(hi)
+			0x91, // CRC(lo)
+		},
+	},
+	{
 		Name:   "ZoneBeastBroadcast",
 		Opcode: 0xefff,
 		SmartbusMessage: SmartbusMessage{
@@ -259,7 +371,7 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 		},
 	},
 	{
-		Name:   "QueryFanController",
+		Name:   "QueryChannelStatuses",
 		Opcode: 0x0033,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
@@ -269,7 +381,7 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_RELAY_DEVICE_ID,
 			},
-			&QueryFanController{
+			&QueryChannelStatuses{
 				Index: 0x07,
 			},
 		},
@@ -288,6 +400,53 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 			0x07, // [data] Index -- undocumented (doc says there's no such field)
 			0x05, // CRC(hi)
 			0xdd, // CRC(lo)
+		},
+	},
+	{
+		Name:   "QueryChannelStatusesResponse",
+		Opcode: 0x0034,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   1,
+				OrigDeviceID:   7,
+				OrigDeviceType: 0x257,
+				TargetSubnetID: SAMPLE_SUBNET,
+				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
+			},
+			&QueryChannelStatusesResponse{
+				ChannelStatus: []uint8{
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0,
+				},
+			},
+		},
+		Packet: []byte{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x18, // Len
+			0x01, // OrigSubnetID
+			0x07, // OrigDeviceID
+			0x02, // OrigDeviceType(hi)
+			0x57, // OrigDeviceType(lo)
+			0x00, // Opcode(hi)
+			0x34, // Opcode(lo)
+			0x01, // TargetSubnetID
+			0x14, // TargetDeviceID
+			0x0c, // [data] NumberOfChannels
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x00, // [data] channel value
+			0x95, // CRC(hi)
+			0x35, // CRC(lo)
 		},
 	},
 	{
@@ -733,7 +892,7 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 // http://smarthomebus.com/dealers/Protocols/Smart%20Bus%20Commands%20V5.10.pdf page 88
 // 00000000  1b 01 1c 13 9c 00 34 01  14 0f 00 00 64 00 00 00  |......4.....d...|
 // 00000010  00 00 00 00 00 00 00 00  00 e6 34                 |..........4|
-// opcode 0x0034 - response to QueryFanController
+// opcode 0x0034 - response to QueryChannelStatuses
 
 // 00000000  0b 01 14 00 95 ff 00 ff  ff e6 a4                 |...........|
 // opcode 0xff00 seems to be some kind of broadcast query no one answers
@@ -1196,8 +1355,8 @@ func TestSmartbusEndpointSendReceive(t *testing.T) {
 	ddpToAppDev.PanelControlResponse(PANEL_CONTROL_TYPE_COOLING_SET_POINT, 25)
 	appHandler.Verify("01/14 (type 0095) -> 03/fe: <PanelControlResponse Cooling Set Point=25>")
 
-	ddpToRelayDev.QueryFanController(7)
-	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <QueryFanController 7>")
+	ddpToRelayDev.QueryChannelStatuses(7)
+	relayHandler.Verify("01/14 (type 0095) -> 01/1c: <QueryChannelStatuses 7>")
 
 	appToDDPDev.QueryPanelButtonAssignment(1, 2)
 	ddpHandler.Verify("03/fe (type fffe) -> 01/14: <QueryPanelButtonAssignment 1/2>")

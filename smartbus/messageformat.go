@@ -12,6 +12,12 @@ import (
 func ReadChannelStatusField(reader io.Reader, value reflect.Value) error {
 	var n uint8
 	if err := binary.Read(reader, binary.BigEndian, &n); err != nil {
+		if err == io.EOF {
+			// channel status field can be skipped
+			// (e.g. 0x32 -- SingleChannelControlResponse)
+			value.Set(reflect.ValueOf([]bool{}))
+			return nil
+		}
 		wbgo.Error.Printf("error reading channel status count: %v", err)
 		return err
 	}
@@ -33,6 +39,10 @@ func ReadChannelStatusField(reader io.Reader, value reflect.Value) error {
 
 func WriteChannelStatusField(writer io.Writer, value reflect.Value) error {
 	status := value.Interface().([]bool)
+	if len(status) == 0 {
+		// field is skipped
+		return nil
+	}
 	if err := binary.Write(writer, binary.BigEndian, uint8(len(status))); err != nil {
 		return err
 	}
@@ -50,7 +60,7 @@ func WriteChannelStatusField(writer io.Writer, value reflect.Value) error {
 
 // -----
 
-func ReadZoneStatusField(reader io.Reader, value reflect.Value) error {
+func ReadStatusBytesField(reader io.Reader, value reflect.Value) error {
 	var n uint8
 	if err := binary.Read(reader, binary.BigEndian, &n); err != nil {
 		wbgo.Error.Printf("error reading zone status count: %v", err)
@@ -69,7 +79,7 @@ func ReadZoneStatusField(reader io.Reader, value reflect.Value) error {
 	return nil
 }
 
-func WriteZoneStatusField(writer io.Writer, value reflect.Value) error {
+func WriteStatusBytesField(writer io.Writer, value reflect.Value) error {
 	status := value.Interface().([]uint8)
 	if err := binary.Write(writer, binary.BigEndian, uint8(len(status))); err != nil {
 		return err
@@ -225,7 +235,7 @@ var converterMap map[string]converter = map[string]converter{
 		0xf5: false,
 	}),
 	"channelStatus": {ReadChannelStatusField, WriteChannelStatusField},
-	"zoneStatus":    {ReadZoneStatusField, WriteZoneStatusField},
+	"statusBytes":   {ReadStatusBytesField, WriteStatusBytesField},
 	"panelButtonModes": arrayConverter(
 		uint8NameListConverter(
 			[]string{

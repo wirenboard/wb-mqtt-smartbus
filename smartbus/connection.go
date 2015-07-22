@@ -175,8 +175,12 @@ func (dev *SmartbusDevice) PanelControlResponse(Type uint8, Value uint8) {
 	dev.Send(&PanelControlResponse{Type, Value})
 }
 
-func (dev *SmartbusDevice) QueryFanController(index uint8) {
-	dev.Send(&QueryFanController{index})
+func (dev *SmartbusDevice) QueryChannelStatuses(index uint8) {
+	dev.Send(&QueryChannelStatuses{index})
+}
+
+func (dev *SmartbusDevice) QueryChannelStatusesResponse(channelStatus []uint8) {
+	dev.Send(&QueryChannelStatusesResponse{channelStatus})
 }
 
 func (dev *SmartbusDevice) QueryPanelButtonAssignment(buttonNo uint8, functionNo uint8) {
@@ -231,4 +235,12 @@ func (dev *SmartbusDevice) ReadTemperatureValues(useCelsius bool) {
 
 func (dev *SmartbusDevice) ReadTemperatureValuesResponse(useCelsius bool, values []int8) {
 	dev.Send(&ReadTemperatureValuesResponse{useCelsius, values})
+}
+
+func (dev *SmartbusDevice) SceneControl(zoneNo, sceneNo uint8) {
+	dev.Send(&SceneControl{zoneNo, sceneNo})
+}
+
+func (dev *SmartbusDevice) SceneControlResponse(zoneNo, sceneNo uint8, channelStatus []bool) {
+	dev.Send(&SceneControlResponse{zoneNo, sceneNo, channelStatus})
 }
