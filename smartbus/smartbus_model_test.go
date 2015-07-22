@@ -63,7 +63,7 @@ func (s *SmartbusDriverSuiteBase) TearDownTest() {
 }
 
 func (s *SmartbusDriverSuiteBase) VerifyVirtualRelays() {
-	expected := make([]string, 0, 100)
+	expected := make([]interface{}, 0, 100)
 	expected = append(
 		expected,
 		"driver -> /devices/sbusvrelay/meta/name: [Smartbus Virtual Relays] (QoS 1, retained)")
@@ -133,14 +133,14 @@ func (s *DDPSuite) verifyQueryingButtons(useTimer bool) {
 		}
 		path := fmt.Sprintf("/devices/ddp0114/controls/Page%dButton%d",
 			(i-1)/4+1, (i-1)%4+1)
-		items := []string{
+		items := []interface{}{
 			fmt.Sprintf("driver -> %s/meta/type: [text] (QoS 1, retained)", path),
 			fmt.Sprintf("driver -> %s/meta/order: [%d] (QoS 1, retained)", path, i),
 			fmt.Sprintf("driver -> %s: [%d] (QoS 1, retained)", path, assignment),
 			fmt.Sprintf("Subscribe -- driver: %s/on", path),
 		}
 		if useTimer {
-			items := append([]string{
+			items := append([]interface{}{
 				fmt.Sprintf("timer.Stop(): %d", i),
 			}, items...)
 			s.VerifyUnordered(items...)
