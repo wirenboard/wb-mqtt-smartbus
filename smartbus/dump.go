@@ -215,6 +215,22 @@ func (f *MessageFormatter) OnReadTemperatureValuesResponse(msg *ReadTemperatureV
 	f.log(hdr, "<ReadTemperatureValuesResponse %s %s>", unitStr, strings.Join(tempStrs, ","))
 }
 
+func (f *MessageFormatter) OnReadSensorStatus(msg *ReadSensorStatus, hdr *MessageHeader) {
+	f.log(hdr, "<ReadSensorStatus>")
+}
+
+func (f *MessageFormatter) OnReadSensorStatusResponse(msg *ReadSensorStatusResponse, hdr *MessageHeader) {
+	f.log(hdr, "<ReadSensorStatusResponse %v %d/%d/%v/%v/%v>",
+		msg.Success, msg.Temperature, msg.Illuminance, msg.Movement,
+		msg.DryContact1, msg.DryContact2)
+}
+
+func (f *MessageFormatter) OnSensorStatusBroadcast(msg *SensorStatusBroadcast, hdr *MessageHeader) {
+	f.log(hdr, "<SensorStatusBroadcast%d/%d/%v/%v/%v>",
+		msg.Temperature, msg.Illuminance, msg.Movement,
+		msg.DryContact1, msg.DryContact2)
+}
+
 type MessageDumper struct {
 	MessageFormatter
 }

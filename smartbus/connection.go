@@ -244,3 +244,24 @@ func (dev *SmartbusDevice) SceneControl(zoneNo, sceneNo uint8) {
 func (dev *SmartbusDevice) SceneControlResponse(zoneNo, sceneNo uint8, channelStatus []bool) {
 	dev.Send(&SceneControlResponse{zoneNo, sceneNo, channelStatus})
 }
+
+func (dev *SmartbusDevice) ReadSensorStatus() {
+	dev.Send(&ReadSensorStatus{})
+}
+
+func (dev *SmartbusDevice) ReadSensorStatusResponse(success bool, temperature int, illumination uint16,
+	movement, dryContact1, dryContact2 bool) {
+	dev.Send(&ReadSensorStatusResponse{
+		success,
+		temperature, illumination, movement,
+		dryContact1, dryContact2, 0, 0,
+	})
+}
+
+func (dev *SmartbusDevice) SensorStatusBroadcast(temperature int, illumination uint16,
+	movement, dryContact1, dryContact2 bool) {
+	dev.Send(&SensorStatusBroadcast{
+		temperature, illumination, movement,
+		dryContact1, dryContact2, 0, 0,
+	})
+}

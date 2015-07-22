@@ -119,8 +119,8 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 		Opcode: 0x0032,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID:   1,
-				OrigDeviceID:   7,
+				OrigSubnetID:   0x01,
+				OrigDeviceID:   0x07,
 				OrigDeviceType: 0x257,
 				TargetSubnetID: BROADCAST_SUBNET,
 				TargetDeviceID: BROADCAST_DEVICE,
@@ -190,8 +190,8 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 		Opcode: 0x0003,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID:   1,
-				OrigDeviceID:   7,
+				OrigSubnetID:   0x01,
+				OrigDeviceID:   0x07,
 				OrigDeviceType: 0x257,
 				TargetSubnetID: BROADCAST_SUBNET,
 				TargetDeviceID: BROADCAST_DEVICE,
@@ -407,8 +407,8 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 		Opcode: 0x0034,
 		SmartbusMessage: SmartbusMessage{
 			MessageHeader{
-				OrigSubnetID:   1,
-				OrigDeviceID:   7,
+				OrigSubnetID:   0x01,
+				OrigDeviceID:   0x07,
 				OrigDeviceType: 0x257,
 				TargetSubnetID: SAMPLE_SUBNET,
 				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
@@ -885,6 +885,123 @@ var messageTestCases []MessageTestCase = []MessageTestCase{
 			0xfc, // [data] -4 degC
 			0x9b, // CRC(hi)
 			0xd7, // CRC(lo)
+		},
+	},
+	{
+		Name:   "ReadSensorStatus",
+		Opcode: 0x1645,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   SAMPLE_SUBNET,
+				OrigDeviceID:   SAMPLE_DDP_DEVICE_ID,
+				OrigDeviceType: SAMPLE_DDP_DEVICE_TYPE,
+				TargetSubnetID: 1,
+				TargetDeviceID: 2,
+			},
+			&ReadSensorStatus{},
+		},
+		Packet: []byte{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x0b, // Len
+			0x01, // OrigSubnetID
+			0x14, // OrigDeviceID
+			0x00, // OrigDeviceType(hi)
+			0x95, // OrigDeviceType(lo)
+			0x16, // Opcode(hi)
+			0x45, // Opcode(lo)
+			0x01, // TargetSubnetID
+			0x02, // TargetDeviceID
+			0x69, // CRC(hi)
+			0x18, // CRC(lo)
+		},
+	},
+	{
+		Name:   "ReadSensorStatusResponse",
+		Opcode: 0x1646,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   0x01,
+				OrigDeviceID:   0x02,
+				OrigDeviceType: 0x149,
+				TargetSubnetID: SAMPLE_SUBNET,
+				TargetDeviceID: SAMPLE_DDP_DEVICE_ID,
+			},
+			&ReadSensorStatusResponse{
+				Success:     true,
+				Temperature: 31,
+				Illuminance: 125,
+				Movement:    true,
+				DryContact1: false,
+				DryContact2: false,
+			},
+		},
+		Packet: []byte{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x14, // Len
+			0x01, // OrigSubnetID
+			0x02, // OrigDeviceID
+			0x01, // OrigDeviceType(hi)
+			0x49, // OrigDeviceType(lo)
+			0x16, // Opcode(hi)
+			0x46, // Opcode(lo)
+			0x01, // TargetSubnetID
+			0x14, // TargetDeviceID
+			0xf8, // [data] Success (0xf8=ok, 0xf5=fail)
+			0x33, // [data] Temperature (51 - 20 = 31 degC)
+			0x00, // [data] Illumination(hi)
+			0x7d, // [data] Illumination(lo)
+			0x01, // [data] Movement
+			0x00, // [data] DryContact1
+			0x00, // [data] DryContact2
+			0x00, // [data] Reserved
+			0x00, // [data] Reserved
+			0xfb, // CRC(hi)
+			0x60, // CRC(lo)
+		},
+	},
+	{
+		Name:   "SensorStatusBroadcast",
+		Opcode: 0x1647,
+		SmartbusMessage: SmartbusMessage{
+			MessageHeader{
+				OrigSubnetID:   0x01,
+				OrigDeviceID:   0x02,
+				OrigDeviceType: 0x149,
+				TargetSubnetID: BROADCAST_SUBNET,
+				TargetDeviceID: BROADCAST_DEVICE,
+			},
+			&SensorStatusBroadcast{
+				Temperature: 25,
+				Illuminance: 14,
+				Movement:    true,
+				DryContact1: false,
+				DryContact2: false,
+			},
+		},
+		Packet: []byte{
+			0xaa, // Sync1
+			0xaa, // Sync2
+			0x13, // Len
+			0x01, // OrigSubnetID
+			0x02, // OrigDeviceID
+			0x01, // OrigDeviceType(hi)
+			0x49, // OrigDeviceType(lo)
+			0x16, // Opcode(hi)
+			0x47, // Opcode(lo)
+			0xff, // TargetSubnetID
+			0xff, // TargetDeviceID
+			0x2d, // [data] Temperature (45 - 20 = 25 degC)
+			0x00, // [data] Illumination(hi)
+			0x0e, // [data] Illumination(lo)
+			0x01, // [data] Movement
+			0x00, // [data] DryContact1
+			0x00, // [data] DryContact2
+			0x00, // [data] Reserved
+			0x00, // [data] Reserved
+			0x12, // CRC(hi)
+			0x93, // CRC(lo)
 		},
 	},
 }

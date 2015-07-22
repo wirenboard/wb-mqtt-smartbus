@@ -253,6 +253,17 @@ var converterMap map[string]converter = map[string]converter{
 			})),
 	"remark":   {ReadRemarkField, WriteRemarkField},
 	"templist": {ReadTemperatureListField, WriteTemperatureListField},
+	"sensorTemp": uint8converter(
+		func(in uint8) (interface{}, error) {
+			return int(in) - 20, nil
+		},
+		func(in interface{}) (uint8, error) {
+			v := in.(int) + 20
+			if v < 0 || v > 255 {
+				return 0, errors.New("temperature value out of range")
+			}
+			return uint8(v), nil
+		}),
 }
 
 func ReadTaggedField(reader io.Reader, value reflect.Value, tag string) error {

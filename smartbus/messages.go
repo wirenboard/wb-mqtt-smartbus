@@ -298,6 +298,41 @@ func (*ReadTemperatureValuesResponse) Opcode() uint16 { return 0xe3e8 }
 
 // ------
 
+type ReadSensorStatus struct{}
+
+func (*ReadSensorStatus) Opcode() uint16 { return 0x1645 }
+
+// ------
+
+type ReadSensorStatusResponse struct {
+	Success     bool `sbus:"success"`
+	Temperature int  `sbus:"sensorTemp"`
+	Illuminance uint16
+	Movement    bool `sbus:"flag"`
+	DryContact1 bool `sbus:"flag"`
+	DryContact2 bool `sbus:"flag"`
+	Reserved1   uint8
+	Reserved2   uint8
+}
+
+func (*ReadSensorStatusResponse) Opcode() uint16 { return 0x1646 }
+
+// ------
+
+type SensorStatusBroadcast struct {
+	Temperature int `sbus:"sensorTemp"`
+	Illuminance uint16
+	Movement    bool `sbus:"flag"`
+	DryContact1 bool `sbus:"flag"`
+	DryContact2 bool `sbus:"flag"`
+	Reserved1   uint8
+	Reserved2   uint8
+}
+
+func (*SensorStatusBroadcast) Opcode() uint16 { return 0x1647 }
+
+// ------
+
 func init() {
 	RegisterMessage(new(*SingleChannelControlCommand))
 	RegisterMessage(new(*SingleChannelControlResponse))
@@ -319,4 +354,7 @@ func init() {
 	RegisterMessage(new(*ReadMACAddressResponse))
 	RegisterMessage(new(*ReadTemperatureValues))
 	RegisterMessage(new(*ReadTemperatureValuesResponse))
+	RegisterMessage(new(*ReadSensorStatus))
+	RegisterMessage(new(*ReadSensorStatusResponse))
+	RegisterMessage(new(*SensorStatusBroadcast))
 }

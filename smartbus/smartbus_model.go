@@ -586,6 +586,7 @@ func (dm *DDPDeviceModel) AcceptOnValue(name, value string) bool {
 	return false
 }
 
+// TBD: test
 type Hmix12DeviceModel struct {
 	*ZoneBeastDeviceModel
 }
@@ -603,7 +604,6 @@ func (hm *Hmix12DeviceModel) Poll() {
 	hm.smartDev.QueryChannelStatuses(0)
 }
 
-// TBD: tes
 func (hm *Hmix12DeviceModel) OnQueryChannelStatusesResponse(msg *QueryChannelStatusesResponse) {
 	shortStatus := make([]bool, len(msg.ChannelStatus))
 	for n, v := range msg.ChannelStatus {
@@ -612,8 +612,79 @@ func (hm *Hmix12DeviceModel) OnQueryChannelStatusesResponse(msg *QueryChannelSta
 	hm.updateChannelStatus(shortStatus)
 }
 
+type Sensor8in1 struct {
+	DeviceModelBase
+	isNew bool
+}
+
+func NewSensor8in1(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel {
+	return &Sensor8in1{
+		DeviceModelBase{
+			nameBase:  "8in1Sensor",
+			titleBase: "8 in 1 Sensor",
+			model:     model,
+			smartDev:  smartDev,
+		},
+		true,
+	}
+}
+
+func (sens *Sensor8in1) Type() uint16 { return 0x149 }
+
+func (sens *Sensor8in1) Poll() {
+	sens.smartDev.ReadSensorStatus()
+}
+
+func (sens *Sensor8in1) AcceptOnValue(name, value string) bool {
+	// this is sensor-only device
+	return false
+}
+
+func (sens *Sensor8in1) reportValue(name, paramType, value string) {
+	if sens.isNew {
+		sens.Observer.OnNewControl(sens, name, paramType, value, true, -1, true)
+	} else {
+		sens.Observer.OnValue(sens, name, value)
+	}
+}
+
+func (sens *Sensor8in1) reportInt(name, paramType string, value int) {
+	sens.reportValue(name, paramType, strconv.Itoa(value))
+}
+
+func (sens *Sensor8in1) reportBool(name, paramType string, value bool) {
+	v := "0"
+	if value {
+		v = "1"
+	}
+	sens.reportValue(name, paramType, v)
+}
+
+/*
+// should check fields
+func (sens *Sensor8in1) OnSensorStatusBroadcast(msg *SensorStatusBroadcast) {
+	sens.reportInt("Temperature", "temperature", msg.Temperature)
+	sens.reportInt("Illuminance", "lux", int(msg.Illuminance))
+	sens.reportBool("Movement", "switch", msg.Movement)
+	sens.reportBool("DryContact1", "switch", msg.DryContact1)
+	sens.reportBool("DryContact2", "switch", msg.DryContact2)
+	sens.isNew = false
+}
+*/
+
+func (sens *Sensor8in1) OnReadSensorStatusResponse(msg *ReadSensorStatusResponse) {
+	// FIXME: duplication
+	sens.reportInt("Temperature", "temperature", msg.Temperature)
+	sens.reportInt("Illuminance", "lux", int(msg.Illuminance))
+	sens.reportBool("Movement", "switch", msg.Movement)
+	sens.reportBool("DryContact1", "switch", msg.DryContact1)
+	sens.reportBool("DryContact2", "switch", msg.DryContact2)
+	sens.isNew = false
+}
+
 func init() {
 	RegisterDeviceModelType(NewZoneBeastDeviceModel)
 	RegisterDeviceModelType(NewDDPDeviceModel)
 	RegisterDeviceModelType(NewHmix12DeviceModel)
+	RegisterDeviceModelType(NewSensor8in1)
 }
