@@ -17,11 +17,12 @@ type SmartbusDriverSuiteBase struct {
 	testutils.Suite
 	*testutils.FakeTimerFixture
 	*testutils.FakeMQTTFixture
-	client  *testutils.FakeMQTTClient
-	driver  *wbgo.Driver
-	model   *SmartbusModel
-	handler *FakeHandler
-	conn    *SmartbusConnection
+	client    *testutils.FakeMQTTClient
+	driver    *wbgo.Driver
+	model     *SmartbusModel
+	handler   *FakeHandler
+	conn      *SmartbusConnection
+	modelConn *SmartbusConnection
 }
 
 func (s *SmartbusDriverSuiteBase) T() *testing.T {

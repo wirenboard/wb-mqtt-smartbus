@@ -119,6 +119,7 @@ type SmartbusModel struct {
 	subnetID      uint8
 	deviceID      uint8
 	deviceType    uint16
+	conn          *SmartbusConnection
 	ep            *SmartbusEndpoint
 	virtualRelays *VirtualRelayDevice
 	broadcastDev  *SmartbusDevice
@@ -150,8 +151,8 @@ func (model *SmartbusModel) Start() error {
 	if err != nil {
 		return err
 	}
-	conn := NewSmartbusConnection(smartbusIO)
-	model.ep = conn.MakeSmartbusEndpoint(model.subnetID, model.deviceID, model.deviceType)
+	model.conn = NewSmartbusConnection(smartbusIO)
+	model.ep = model.conn.MakeSmartbusEndpoint(model.subnetID, model.deviceID, model.deviceType)
 	model.ep.Observe(model)
 	model.ep.Observe(NewMessageDumper("MESSAGE FOR US"))
 	model.ep.AddInputSniffer(NewMessageDumper("NOT FOR US"))
@@ -166,6 +167,7 @@ func (model *SmartbusModel) Start() error {
 
 func (model *SmartbusModel) Stop() {
 	model.queue.Stop()
+	model.conn.Close()
 }
 
 func (model *SmartbusModel) Poll() {

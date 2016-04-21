@@ -287,4 +287,7 @@ func (streamIO *SmartbusStreamIO) SendRaw(msg []byte) {
 func (streamIO *SmartbusStreamIO) Stop() {
 	close(streamIO.writeCh) // this kills WriteSmartbus goroutine
 	streamIO.stream.Close() // this kills ReadSmartbus goroutine by causing read error
+	for _ = range streamIO.readCh {
+		// drain read queue
+	}
 }

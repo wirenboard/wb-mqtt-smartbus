@@ -1333,17 +1333,19 @@ var fakeTimeout = errors.New("fake timeout")
 
 type fakeTimeoutConnectionWrapper struct {
 	net.Conn
-	trap  chan struct{}
-	bytes chan byte
-	errCh chan error
+	trap    chan struct{}
+	bytes   chan byte
+	errCh   chan error
+	closeCh chan struct{}
 }
 
 func newFakeTimeoutConnectionWrapper(conn net.Conn) (wrapper *fakeTimeoutConnectionWrapper) {
 	wrapper = &fakeTimeoutConnectionWrapper{
-		Conn:  conn,
-		trap:  make(chan struct{}, 10),
-		bytes: make(chan byte, 1024),
-		errCh: make(chan error, 1),
+		Conn:    conn,
+		trap:    make(chan struct{}, 10),
+		bytes:   make(chan byte, 1024),
+		errCh:   make(chan error, 1),
+		closeCh: make(chan struct{}),
 	}
 	go wrapper.readData()
 	return
@@ -1367,6 +1369,11 @@ func (wrapper *fakeTimeoutConnectionWrapper) readData() {
 	}
 }
 
+func (wrapper *fakeTimeoutConnectionWrapper) Close() error {
+	close(wrapper.closeCh)
+	return wrapper.Conn.Close()
+}
+
 func (wrapper *fakeTimeoutConnectionWrapper) Read(b []byte) (n int, err error) {
 	// Check if zero-length read is requested so that
 	// we don't have to read anything. In this case,
@@ -1377,6 +1384,8 @@ func (wrapper *fakeTimeoutConnectionWrapper) Read(b []byte) (n int, err error) {
 
 	// Read first char, may trap at this point
 	select {
+	case <-wrapper.closeCh:
+		return 0, io.EOF
 	case <-wrapper.trap:
 		return 0, fakeTimeout
 	case b[0] = <-wrapper.bytes:
@@ -1386,6 +1395,8 @@ func (wrapper *fakeTimeoutConnectionWrapper) Read(b []byte) (n int, err error) {
 readLoop:
 	for n = 1; n < len(b); n++ {
 		select {
+		case <-wrapper.closeCh:
+			return 0, io.EOF
 		case err = <-wrapper.errCh:
 			break readLoop
 		case b[n] = <-wrapper.bytes:
