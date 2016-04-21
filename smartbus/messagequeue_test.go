@@ -2,7 +2,7 @@ package smartbus
 
 import (
 	"fmt"
-	"github.com/contactless/wbgo"
+	"github.com/contactless/wbgo/testutils"
 	"strconv"
 	"testing"
 	"time"
@@ -17,7 +17,7 @@ func (msg *FakeMessage) Opcode() uint16 {
 }
 
 type FakeQueueItem struct {
-	rec            *wbgo.Recorder
+	rec            *testutils.Recorder
 	name           string
 	expectedOpcode uint16
 }
@@ -35,9 +35,9 @@ func (item *FakeQueueItem) Name() string {
 }
 
 type MessageQueueSuite struct {
-	wbgo.Suite
-	*wbgo.FakeTimerFixture
-	*wbgo.Recorder
+	testutils.Suite
+	*testutils.FakeTimerFixture
+	*testutils.Recorder
 	queue *MessageQueue
 }
 
@@ -48,8 +48,8 @@ func (s *MessageQueueSuite) T() *testing.T {
 func (s *MessageQueueSuite) SetupTest() {
 	s.Suite.SetupTest()
 
-	s.Recorder = wbgo.NewRecorder(s.T())
-	s.FakeTimerFixture = wbgo.NewFakeTimerFixture(s.T(), s.Recorder)
+	s.Recorder = testutils.NewRecorder(s.T())
+	s.FakeTimerFixture = testutils.NewFakeTimerFixture(s.T(), s.Recorder)
 	s.queue = NewMessageQueue(s.NewFakeTimer, 1000*time.Millisecond, 2, 3)
 	s.queue.Start()
 }
@@ -180,5 +180,5 @@ func (s *MessageQueueSuite) TestMessageQueueRestart() {
 }
 
 func TestMessageQueueSuite(t *testing.T) {
-	wbgo.RunSuites(t, new(MessageQueueSuite))
+	testutils.RunSuites(t, new(MessageQueueSuite))
 }

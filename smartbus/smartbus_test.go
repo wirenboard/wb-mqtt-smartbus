@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/contactless/wbgo"
+	"github.com/contactless/wbgo/testutils"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net"
@@ -1112,8 +1112,8 @@ func VerifyWrite(t *testing.T, mtc MessageTestCase, bs []byte) {
 }
 
 func TestSingleFrame(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	for _, mtc := range messageTestCases {
 		p, r := io.Pipe()
@@ -1150,8 +1150,8 @@ func TestSingleFrame(t *testing.T) {
 }
 
 func TestWriteRaw(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	for _, mtc := range messageTestCases {
 		p, r := io.Pipe()
@@ -1171,8 +1171,8 @@ func TestWriteRaw(t *testing.T) {
 }
 
 func TestMultiRead(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	cap := 0
 	for _, mtc := range messageTestCases {
@@ -1201,8 +1201,8 @@ func TestMultiRead(t *testing.T) {
 }
 
 func TestResync(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureGotErrors(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureGotErrors(t)
 
 	bs := append([]uint8{
 		0xaa, // Sync1
@@ -1237,8 +1237,8 @@ func TestResync(t *testing.T) {
 }
 
 func TestReadLocking(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	mtc := messageTestCases[0]
 	p, r := io.Pipe()
@@ -1273,12 +1273,12 @@ func parseChannelStatus(statusStr string) (status []bool) {
 }
 
 type FakeHandler struct {
-	*wbgo.Recorder
+	*testutils.Recorder
 	MessageFormatter
 }
 
 func NewFakeHandler(t *testing.T) (handler *FakeHandler) {
-	handler = &FakeHandler{Recorder: wbgo.NewRecorder(t)}
+	handler = &FakeHandler{Recorder: testutils.NewRecorder(t)}
 	handler.AddMessage = func(format string, args ...interface{}) {
 		handler.Rec(format, args...)
 	}
@@ -1286,8 +1286,8 @@ func NewFakeHandler(t *testing.T) (handler *FakeHandler) {
 }
 
 func TestSmartbusEndpointSend(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	p, r := net.Pipe() // we need bidirectional pipe here
 
@@ -1311,8 +1311,8 @@ func TestSmartbusEndpointSend(t *testing.T) {
 }
 
 func TestSmartbusEndpointReceive(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	p, r := net.Pipe()
 	handler := NewFakeHandler(t)
@@ -1402,8 +1402,8 @@ func (wrapper *fakeTimeoutConnectionWrapper) IsTimeout(err error) bool {
 }
 
 func TestSmartbusEndpointSendReceive(t *testing.T) {
-	wbgo.SetupTestLogging(t)
-	defer wbgo.EnsureNoErrorsOrWarnings(t)
+	testutils.SetupTestLogging(t)
+	defer testutils.EnsureNoErrorsOrWarnings(t)
 
 	p, r := net.Pipe()
 	wrapper := newFakeTimeoutConnectionWrapper(r)

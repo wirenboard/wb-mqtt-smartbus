@@ -3,6 +3,7 @@ package smartbus
 import (
 	"fmt"
 	"github.com/contactless/wbgo"
+	"github.com/contactless/wbgo/testutils"
 	"net"
 	"testing"
 	"time"
@@ -13,10 +14,10 @@ const (
 )
 
 type SmartbusDriverSuiteBase struct {
-	wbgo.Suite
-	*wbgo.FakeTimerFixture
-	*wbgo.FakeMQTTFixture
-	client  *wbgo.FakeMQTTClient
+	testutils.Suite
+	*testutils.FakeTimerFixture
+	*testutils.FakeMQTTFixture
+	client  *testutils.FakeMQTTClient
 	driver  *wbgo.Driver
 	model   *SmartbusModel
 	handler *FakeHandler
@@ -29,13 +30,13 @@ func (s *SmartbusDriverSuiteBase) T() *testing.T {
 
 func (s *SmartbusDriverSuiteBase) SetupTest() {
 	s.Suite.SetupTest()
-	s.FakeMQTTFixture = wbgo.NewFakeMQTTFixture(s.T())
+	s.FakeMQTTFixture = testutils.NewFakeMQTTFixture(s.T())
 }
 
 func (s *SmartbusDriverSuiteBase) Start(useTimer bool) {
 	var timerFunc TimerFunc = nil
 	if useTimer {
-		s.FakeTimerFixture = wbgo.NewFakeTimerFixture(s.T(), s.Broker.Recorder) // FIXME
+		s.FakeTimerFixture = testutils.NewFakeTimerFixture(s.T(), s.Broker.Recorder) // FIXME
 		timerFunc = s.NewFakeTimer
 	} else {
 		s.FakeTimerFixture = nil
@@ -385,7 +386,7 @@ func (s *ZoneBeastSuite) TestSmartbusDriverZoneBeastCommandQueue() {
 }
 
 func TestSmartbusDriverSuite(t *testing.T) {
-	wbgo.RunSuites(t, new(DDPSuite), new(ZoneBeastSuite))
+	testutils.RunSuites(t, new(DDPSuite), new(ZoneBeastSuite))
 }
 
 // TBD: outdated ZoneBeastBroadcast messages still arrive sometimes, need to fix this
