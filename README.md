@@ -3,6 +3,9 @@ wb-mqtt-smartbus
 
 MQTT-драйвер [Smart-Bus](http://smarthomebus.com/) для Wiren Board.
 
+Работу с исходными текстами необходимо производить внутри wbdev workspace
+(создаётся командой `wbdev update-workspace`).
+
 Сборка исполняемого файла для arm:
 
 ```
