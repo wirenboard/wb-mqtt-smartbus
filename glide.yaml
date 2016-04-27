@@ -1,0 +1,8 @@
+package: github.com/contactless/wb-mqtt-smartbus
+import:
+- package: github.com/contactless/wb-mqtt-smartbus
+  subpackages:
+  - smartbus
+- package: github.com/contactless/wbgo
+  version: ~0.0.1
+- package: github.com/goburrow/serial

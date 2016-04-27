@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./smartbus"
+	"github.com/contactless/wb-mqtt-smartbus/smartbus"
 	"flag"
 	"github.com/contactless/wbgo"
 	"time"

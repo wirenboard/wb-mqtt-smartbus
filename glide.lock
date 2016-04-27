@@ -1,0 +1,26 @@
+hash: f4750cc07aca08aec773e540f37ce885a311ef8e49bc1e5be38af5971818b07d
+updated: 2016-04-27T02:39:15.662949591+03:00
+imports:
+- name: github.com/contactless/org.eclipse.paho.mqtt.golang
+  version: ab132c5592358c9449a19cd5be42301d2ce55c7e
+  subpackages:
+  - packets
+- name: github.com/contactless/wb-mqtt-smartbus
+  version: 0c02914aae8ce2d222e69612fc47f7082b1594b4
+  subpackages:
+  - smartbus
+- name: github.com/contactless/wbgo
+  version: 72c84f27ae3d7316ff54c8694ac9e254c88d42fe
+- name: github.com/goburrow/serial
+  version: bf1bf09b87e3ec7436f34f09ae59ce10537366ac
+- name: golang.org/x/net
+  version: cb0ed7acc4f717d79a358093419e5a7da09b8b45
+  subpackages:
+  - websocket
+- name: golang.org/x/sys
+  version: f64b50fbea64174967a8882830d621a18ee1548e
+  subpackages:
+  - unix
+- name: gopkg.in/fsnotify.v1
+  version: 30411dbcefb7a1da7e84f75530ad3abe4011b4f8
+devImports: []
