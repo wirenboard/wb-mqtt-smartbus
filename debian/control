@@ -6,6 +6,6 @@ Standards-Version: 3.9.2
 Build-Depends: debhelper (>= 9), pkg-config
 
 Package: wb-mqtt-smartbus
-Architecture: armel i386 amd64
+Architecture: armel armhf i386 amd64
 Depends: libc6 (>= 2.13), ${misc:Depends}
 Description: Smart-Bus support
