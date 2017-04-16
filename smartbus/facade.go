@@ -59,7 +59,7 @@ func connect(serialAddress string, provideUdpGateway bool) (SmartbusIO, error) {
 			Address:  serialAddress,
 			BaudRate: 9600,
 			DataBits: 8,
-			StopBits: 2,
+			StopBits: 1,
 			Parity:   "E",
 			Timeout:  250 * time.Millisecond,
 		}); err != nil {
