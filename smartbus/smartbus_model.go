@@ -189,7 +189,7 @@ func (model *SmartbusModel) ensureDevice(header *MessageHeader) RealDeviceModel 
 
 	construct, found := smartbusDeviceModelTypes[header.OrigDeviceType]
 	if !found {
-		wbgo.Debug.Printf("unrecognized device type %04x @ %02x:%02x",
+		wbgo.Debug.Printf("unrecognized device type %04x @ %d:%d",
 			header.OrigDeviceType, header.OrigSubnetID, header.OrigDeviceID)
 		return nil
 	}
@@ -228,11 +228,11 @@ type DeviceModelBase struct {
 }
 
 func (dm *DeviceModelBase) Name() string {
-	return fmt.Sprintf("%s%02x%02x", dm.nameBase, dm.smartDev.SubnetID, dm.smartDev.DeviceID)
+	return fmt.Sprintf("%s%d_%d", dm.nameBase, dm.smartDev.SubnetID, dm.smartDev.DeviceID)
 }
 
 func (dm *DeviceModelBase) Title() string {
-	return fmt.Sprintf("%s %02x:%02x", dm.titleBase, dm.smartDev.SubnetID, dm.smartDev.DeviceID)
+	return fmt.Sprintf("%s %d:%d", dm.titleBase, dm.smartDev.SubnetID, dm.smartDev.DeviceID)
 }
 
 func (dev *DeviceModelBase) Observe(observer wbgo.DeviceObserver) {
@@ -684,9 +684,34 @@ func (sens *Sensor8in1) OnReadSensorStatusResponse(msg *ReadSensorStatusResponse
 	sens.isNew = false
 }
 
+
+type SensorSB_CMS_8in1 struct {
+	Sensor8in1
+	isNew bool
+}
+
+func NewSensorSB_CMS_8in1(model *SmartbusModel, smartDev *SmartbusDevice) RealDeviceModel {
+	return &SensorSB_CMS_8in1{
+		Sensor8in1{
+			DeviceModelBase{
+				nameBase:  "Sensor_SB_CMS_8in1_",
+				titleBase: "SB CMS 8in1",
+				model:     model,
+				smartDev:  smartDev,
+			},
+			true,
+		},
+		true,
+	}
+}
+
+func (sens *SensorSB_CMS_8in1) Type() uint16 { return 0x142 }
+
+
 func init() {
 	RegisterDeviceModelType(NewZoneBeastDeviceModel)
 	RegisterDeviceModelType(NewDDPDeviceModel)
 	RegisterDeviceModelType(NewHmix12DeviceModel)
 	RegisterDeviceModelType(NewSensor8in1)
+	RegisterDeviceModelType(NewSensorSB_CMS_8in1)
 }

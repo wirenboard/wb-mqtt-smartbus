@@ -1,3 +1,9 @@
+wb-mqtt-smartbus (1.2) stable; urgency=medium
+
+  * adds another 8in1 sensor, changed device_id/subnet in MQTT to decimal
+
+ -- Evgeny Boger <boger@contactless.ru>  Tue, 25 Apr 2017 21:55:15 +0300
+
 wb-mqtt-smartbus (1.1.1) stable; urgency=medium
 
   * change serial port settings to 9600 8E1
